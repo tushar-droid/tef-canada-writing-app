@@ -163,21 +163,110 @@ export function saveLLMConfig(config: LLMConfig): void {
   }
 }
 
-export function computeCategoryFrequencyMap(attempts: Attempt[]): Map<string, number> {
-  const counts = new Map<string, number>();
+export function normalizeCategory(cat: string): string {
+  if (!cat) return '';
+  return cat
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .replace(/[.,:;]+$/, '');
+}
+
+export interface TopRecurringErrorInfo {
+  category: string;
+  count: number;
+  isRecurring: boolean;
+  level: 'high' | 'medium' | 'low' | 'none';
+}
+
+export function computeCategoryFrequencyMap(
+  attempts: Attempt[],
+  displayMap?: Map<string, string>
+): Map<string, number> {
+  const normCounts = new Map<string, number>();
+  const bestDisplay = displayMap || new Map<string, string>();
+
   for (const att of (attempts || [])) {
     for (const m of (att.mistakes || [])) {
       if (!m || !m.category) continue;
-      const cat = m.category.trim();
-      counts.set(cat, (counts.get(cat) || 0) + 1);
+      const raw = m.category.trim();
+      const norm = normalizeCategory(raw);
+      if (!norm) continue;
+
+      normCounts.set(norm, (normCounts.get(norm) || 0) + 1);
+
+      // Keep the most nicely cased version (prefer ones with uppercase letters)
+      if (!bestDisplay.has(norm) || (raw !== raw.toLowerCase() && bestDisplay.get(norm) === bestDisplay.get(norm)?.toLowerCase())) {
+        bestDisplay.set(norm, raw);
+      }
     }
   }
-  return counts;
+
+  // Create unified lookup map: populated with both normalized and raw keys for safety
+  const result = new Map<string, number>();
+  normCounts.forEach((count, norm) => {
+    result.set(norm, count);
+    const display = bestDisplay.get(norm);
+    if (display) {
+      result.set(display, count);
+    }
+  });
+
+  return result;
 }
 
 export function getMistakeFrequency(category: string, frequencyMap: Map<string, number>): MistakeFrequency {
-  const count = frequencyMap.get(category.trim()) || 1;
+  const norm = normalizeCategory(category);
+  const count = frequencyMap.get(norm) ?? frequencyMap.get(category.trim()) ?? 1;
   if (count >= 3) return 'high';   // Red
   if (count === 2) return 'medium'; // Yellow
   return 'low';                    // Green
+}
+
+export function getTopRecurringError(attempts: Attempt[]): TopRecurringErrorInfo {
+  const displayMap = new Map<string, string>();
+  const normCounts = new Map<string, number>();
+
+  for (const att of (attempts || [])) {
+    for (const m of (att.mistakes || [])) {
+      if (!m || !m.category) continue;
+      const raw = m.category.trim();
+      const norm = normalizeCategory(raw);
+      if (!norm) continue;
+
+      normCounts.set(norm, (normCounts.get(norm) || 0) + 1);
+      if (!displayMap.has(norm) || (raw !== raw.toLowerCase() && displayMap.get(norm) === displayMap.get(norm)?.toLowerCase())) {
+        displayMap.set(norm, raw);
+      }
+    }
+  }
+
+  let topNorm = '';
+  let maxCount = 0;
+
+  normCounts.forEach((count, norm) => {
+    if (count > maxCount) {
+      maxCount = count;
+      topNorm = norm;
+    }
+  });
+
+  if (maxCount === 0 || !topNorm) {
+    return {
+      category: 'None',
+      count: 0,
+      isRecurring: false,
+      level: 'none',
+    };
+  }
+
+  const category = displayMap.get(topNorm) || topNorm;
+  const level = maxCount >= 3 ? 'high' : maxCount === 2 ? 'medium' : 'low';
+
+  return {
+    category,
+    count: maxCount,
+    isRecurring: maxCount >= 2,
+    level,
+  };
 }

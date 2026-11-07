@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef } from 'react';
 import { Attempt, Question } from '../types';
 import { AppLanguage, TRANSLATIONS } from '../i18n/translations';
-import { computeCategoryFrequencyMap, getMistakeFrequency } from '../utils/storage';
+import { computeCategoryFrequencyMap, getMistakeFrequency, normalizeCategory } from '../utils/storage';
 import { OFFICIAL_QUESTIONS } from '../data/officialQuestions';
 import { ConfirmModal } from './ConfirmModal';
 import { LanguageSwitch } from './LanguageSwitch';
@@ -60,37 +60,64 @@ export function AttemptDetailView({
   const frequencyMap = useMemo(() => computeCategoryFrequencyMap(allAttempts), [allAttempts]);
 
   const enrichedMistakes = useMemo(() => {
-    return attempt.mistakes.map((m) => {
+    // Count occurrences of each category in THIS specific copy
+    const thisCopyCounts = new Map<string, number>();
+    for (const m of (attempt.mistakes || [])) {
+      if (!m || !m.category) continue;
+      const norm = normalizeCategory(m.category);
+      thisCopyCounts.set(norm, (thisCopyCounts.get(norm) || 0) + 1);
+    }
+
+    return (attempt.mistakes || []).map((m) => {
+      const norm = normalizeCategory(m.category);
       const tag = getMistakeFrequency(m.category, frequencyMap);
-      const count = frequencyMap.get(m.category.trim()) || 1;
+      const historyCount = frequencyMap.get(norm) ?? frequencyMap.get(m.category.trim()) ?? 1;
+      const thisCopyCount = thisCopyCounts.get(norm) || 1;
+
       return {
         ...m,
         frequencyTag: tag,
-        occurrenceCount: count,
+        occurrenceCount: historyCount,
+        thisCopyCount,
       };
     });
   }, [attempt.mistakes, frequencyMap]);
 
+  // Ranked by frequency impact: high priority errors first, then by total history count, then copy count
+  const rankedMistakes = useMemo(() => {
+    const priorityWeight: Record<string, number> = { high: 3, medium: 2, low: 1 };
+    return [...enrichedMistakes].sort((a, b) => {
+      const weightDiff = (priorityWeight[b.frequencyTag] || 0) - (priorityWeight[a.frequencyTag] || 0);
+      if (weightDiff !== 0) return weightDiff;
+      if (b.occurrenceCount !== a.occurrenceCount) {
+        return b.occurrenceCount - a.occurrenceCount;
+      }
+      return b.thisCopyCount - a.thisCopyCount;
+    });
+  }, [enrichedMistakes]);
+
   const highCount = enrichedMistakes.filter((m) => m.frequencyTag === 'high').length;
   const lowCount = enrichedMistakes.filter((m) => m.frequencyTag === 'low').length;
 
-  // Find top recurring error
+  // Find top recurring error among the mistakes in this attempt
   const topRecurringError = useMemo(() => {
-    const highMistake = enrichedMistakes.find((m) => m.frequencyTag === 'high');
-    if (highMistake) {
+    if (rankedMistakes.length === 0) {
       return {
-        category: highMistake.category,
-        count: highMistake.occurrenceCount,
+        category: language === 'fr' ? 'Aucune' : 'None',
+        historyCount: 0,
+        thisCopyCount: 0,
+        tag: 'none' as const,
       };
     }
-    if (enrichedMistakes.length > 0) {
-      return {
-        category: enrichedMistakes[0].category,
-        count: enrichedMistakes[0].occurrenceCount,
-      };
-    }
-    return { category: 'None', count: 0 };
-  }, [enrichedMistakes]);
+
+    const top = rankedMistakes[0];
+    return {
+      category: top.category,
+      historyCount: top.occurrenceCount,
+      thisCopyCount: top.thisCopyCount,
+      tag: top.frequencyTag,
+    };
+  }, [rankedMistakes, language]);
 
   // Attempt pagination (Previous / Next)
   const currentIndex = allAttempts.findIndex((a) => a.id === attempt.id);
@@ -261,15 +288,48 @@ export function AttemptDetailView({
         {/* KPI 3: TOP RECURRING ERROR */}
         <div className="kpi-card">
           <div className="kpi-card-header">
-            <span className="kpi-label">TOP RECURRING ERROR</span>
-            <span className="kpi-badge red">Urgent Priority</span>
+            <span className="kpi-label">
+              {language === 'fr' ? 'ERREUR PRINCIPALE' : 'TOP RECURRING ERROR'}
+            </span>
+            <span
+              className={`kpi-badge ${
+                topRecurringError.tag === 'high'
+                  ? 'red'
+                  : topRecurringError.tag === 'medium'
+                  ? 'amber'
+                  : topRecurringError.historyCount === 0
+                  ? 'green'
+                  : 'grey'
+              }`}
+            >
+              {topRecurringError.historyCount === 0
+                ? (language === 'fr' ? 'Sans faute' : 'Zero Errors')
+                : topRecurringError.tag === 'high'
+                ? (language === 'fr' ? 'Priorité haute' : 'High Priority')
+                : topRecurringError.tag === 'medium'
+                ? (language === 'fr' ? 'Répétition modérée' : 'Moderate Repeat')
+                : (language === 'fr' ? 'Erreur isolée' : 'Isolated Error')}
+            </span>
           </div>
           <div className="kpi-metric error-metric">
-            <span className="red-dot">●</span> {topRecurringError.category}
+            <span className={`red-dot dot-${topRecurringError.tag}`}>●</span>{' '}
+            {topRecurringError.category}
           </div>
           <div className="kpi-sub muted-text">
             <IconClock size={13} />
-            <span>{topRecurringError.count} occurrences détectées dans cette copie</span>
+            <span>
+              {topRecurringError.historyCount === 0
+                ? (language === 'fr'
+                    ? 'Aucune faute détectée dans cette copie'
+                    : 'No mistakes detected in this copy')
+                : allAttempts.length <= 1
+                ? (language === 'fr'
+                    ? `${topRecurringError.thisCopyCount} occurrence${topRecurringError.thisCopyCount > 1 ? 's' : ''} dans cette copie`
+                    : `${topRecurringError.thisCopyCount} occurrence${topRecurringError.thisCopyCount > 1 ? 's' : ''} in this essay`)
+                : (language === 'fr'
+                    ? `${topRecurringError.historyCount} au total (${topRecurringError.thisCopyCount} dans cette copie)`
+                    : `${topRecurringError.historyCount} across tests (${topRecurringError.thisCopyCount} in this essay)`)}
+            </span>
           </div>
         </div>
       </section>
@@ -466,7 +526,7 @@ export function AttemptDetailView({
                 </div>
 
                 <div className="remediation-cards-list">
-                  {enrichedMistakes.map((mistake, index) => {
+                  {rankedMistakes.map((mistake, index) => {
                     const isSelected = activeMistakeId === mistake.id;
                     const freqClass = mistake.frequencyTag || 'medium';
 
@@ -486,10 +546,10 @@ export function AttemptDetailView({
                           </div>
                           <span className={`priority-tag ${freqClass}`}>
                             {freqClass === 'high' 
-                              ? 'High Frequency' 
+                              ? (language === 'fr' ? 'Haute récurrence' : 'High Frequency') 
                               : freqClass === 'medium' 
-                              ? 'Moderate Repeat' 
-                              : 'Style Suggestion'}
+                              ? (language === 'fr' ? 'Répétition modérée' : 'Moderate Repeat') 
+                              : (language === 'fr' ? 'Erreur isolée' : 'Isolated Error')}
                           </span>
                         </div>
 
@@ -527,7 +587,7 @@ export function AttemptDetailView({
               <p>Review each mistake in depth along with Canadian scoring criteria.</p>
             </div>
             <div className="remediation-cards-list full-width">
-              {enrichedMistakes.map((mistake, index) => (
+              {rankedMistakes.map((mistake, index) => (
                 <div key={mistake.id} className={`remediation-item-card ${mistake.frequencyTag}`}>
                   <div className="remediation-card-top">
                     <div className="item-title-row">
@@ -535,7 +595,11 @@ export function AttemptDetailView({
                       <span className="item-number-title">{index + 1}. {mistake.category}</span>
                     </div>
                     <span className={`priority-tag ${mistake.frequencyTag}`}>
-                      {mistake.frequencyTag?.toUpperCase()} PRIORITY
+                      {mistake.frequencyTag === 'high'
+                        ? (language === 'fr' ? 'HAUTE PRIORITÉ' : 'HIGH PRIORITY')
+                        : mistake.frequencyTag === 'medium'
+                        ? (language === 'fr' ? 'RÉPÉTITION MODÉRÉE' : 'MODERATE REPEAT')
+                        : (language === 'fr' ? 'ERREUR ISOLÉE' : 'ISOLATED ERROR')}
                     </span>
                   </div>
                   <div className="item-diff-lines">
