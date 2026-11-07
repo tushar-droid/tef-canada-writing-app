@@ -1,31 +1,72 @@
-# Logs
-logs
+# ==============================================================================
+# COMPILED BINARIES, INSTALLERS & PACKAGES (NEVER COMMIT TO GIT)
+# ==============================================================================
+*.dmg
+*.app
+*.pkg
+*.deb
+*.rpm
+*.exe
+*.msi
+*.zip
+*.tar.gz
+*.tgz
+*.iso
+*.dylib
+*.so
+*.dll
+*.pdf
+
+# ==============================================================================
+# BUILD DIRECTORIES
+# ==============================================================================
+target/
+**/target/
+src-tauri/target/
+dist/
+dist-ssr/
+build/
+out/
+.tauri/
+
+# ==============================================================================
+# DEPENDENCIES & LOGS
+# ==============================================================================
+node_modules/
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
-lerna-debug.log*
+.pnpm-store/
+.turbo/
 
-node_modules
-dist
-dist-ssr
+# ==============================================================================
+# LOCAL CONFIG & SECRETS
+# ==============================================================================
 *.local
+.env
+.env.*
+!.env.example
 
-# Tauri & Rust build artifacts
-target/
-src-tauri/target/
-*.dmg
-*.app
-*.pkg
-*.tar.gz
-*.zip
+# ==============================================================================
+# OPERATING SYSTEM ARTIFACTS
+# ==============================================================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
 
-# Editor directories and files
+# ==============================================================================
+# IDE & EDITORS
+# ==============================================================================
 .vscode/*
 !.vscode/extensions.json
-.idea
-.DS_Store
+.idea/
 *.suo
 *.ntvs*
 *.njsproj
