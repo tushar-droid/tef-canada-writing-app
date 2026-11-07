@@ -123,10 +123,10 @@ export async function exportAttemptToPDF(attempt: Attempt): Promise<PDFExportRes
     y += 5;
 
     const sub = attempt.subScores || {
-      coherence: attempt.nclcScore,
-      vocabulary: attempt.nclcScore,
+      coherence: attempt.nclcScore || 7,
+      vocabulary: attempt.nclcScore || 7,
       taskCompletion: attempt.wordCount >= 200 ? 9 : 7,
-      grammar: Math.max(4, attempt.nclcScore - 2),
+      grammar: Math.max(4, (attempt.nclcScore || 7) - 2),
     };
 
     const subScoreText = `• Cohérence & Organisation: NCLC ${sub.coherence}   • Lexique (Vocabulaire): NCLC ${sub.vocabulary}   • Respect de la consigne: NCLC ${sub.taskCompletion}   • Syntaxe & Grammaire: NCLC ${sub.grammar}`;
@@ -178,7 +178,7 @@ export async function exportAttemptToPDF(attempt: Attempt): Promise<PDFExportRes
     doc.setFontSize(9);
     doc.setTextColor(15, 23, 42);
 
-    const modelParas = attempt.correctedResponse.split('\n\n');
+    const modelParas = (attempt.correctedResponse || '(Model answer pending AI evaluation)').split('\n\n');
     for (const para of modelParas) {
       if (!para.trim()) continue;
       const lines = doc.splitTextToSize(cleanPdfText(para.trim()), contentWidth - 8);

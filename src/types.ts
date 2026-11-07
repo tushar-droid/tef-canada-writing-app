@@ -30,8 +30,11 @@ export interface SubScores {
   grammar: number; // e.g. 6
 }
 
+export type AttemptStatus = 'evaluated' | 'pending-evaluation' | 'evaluation-failed';
+
 export interface Attempt {
   id: string;
+  status?: AttemptStatus;
   timestamp: string; // ISO date string
   taskType: TaskType;
   questionId: string;
@@ -40,12 +43,13 @@ export interface Attempt {
   userResponse: string;
   wordCount: number;
   timeSpentSeconds: number;
-  nclcScore: number; // 4 to 10
-  nclcLevelDescription: string;
-  evaluationSummary: string;
-  correctedResponse: string;
-  mistakes: Mistake[];
+  nclcScore?: number; // 4 to 10
+  nclcLevelDescription?: string;
+  evaluationSummary?: string;
+  correctedResponse?: string;
+  mistakes?: Mistake[];
   subScores?: SubScores;
+  evaluationError?: string;
 }
 
 export type LLMProvider = 'gemini' | 'custom';

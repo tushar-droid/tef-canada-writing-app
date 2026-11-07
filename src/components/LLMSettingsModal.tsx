@@ -62,6 +62,9 @@ export function LLMSettingsModal({
     setTestResult(null);
     const result = await testLLMConnection(formData);
     setTestResult(result);
+    if (result.success) {
+      setFormData((prev) => ({ ...prev, isEnabled: true }));
+    }
     setTesting(false);
   };
 
@@ -74,7 +77,14 @@ export function LLMSettingsModal({
   };
 
   const handleSave = () => {
-    onSaveConfig(formData);
+    const hasCreds = formData.provider === 'gemini' 
+      ? formData.apiKey.trim().length > 0 
+      : formData.baseUrl.trim().length > 0;
+    const finalConfig = {
+      ...formData,
+      isEnabled: hasCreds,
+    };
+    onSaveConfig(finalConfig);
     onClose();
   };
 
@@ -98,20 +108,22 @@ export function LLMSettingsModal({
       </div>
 
       <div className="settings-body-card">
-        {/* Toggle Enable */}
-        <div className="settings-row toggle-row">
+        {/* Automatic Status Notice (No manual tick required) */}
+        <div className="settings-row status-info-row">
           <div className="setting-info">
-            <span className="setting-label">{t.enableLLM}</span>
-            <span className="setting-desc">{t.enableLLMDesc}</span>
+            <span className="setting-label">
+              {language === 'fr' ? 'Statut de l’évaluation IA' : 'AI Evaluation Engine'}
+            </span>
+            <span className="setting-desc">
+              {language === 'fr'
+                ? 'L’évaluation IA est automatiquement activée dès que vos identifiants sont renseignés ou testés avec succès.'
+                : 'AI evaluation activates automatically as soon as your credentials or local model are saved or verified.'}
+            </span>
           </div>
-          <label className="mac-switch">
-            <input
-              type="checkbox"
-              checked={formData.isEnabled}
-              onChange={(e) => setFormData({ ...formData, isEnabled: e.target.checked })}
-            />
-            <span className="slider round" />
-          </label>
+          <div className="auto-active-badge">
+            <span className="dot pulse green" />
+            <span>{language === 'fr' ? 'Actif automatiquement' : 'Auto-Enabled on Save'}</span>
+          </div>
         </div>
 
         {/* Provider Selection */}

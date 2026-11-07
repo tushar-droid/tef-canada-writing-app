@@ -44,10 +44,6 @@ export function HomeView({
   const isLLMActive = isLLMConfigured(llmConfig);
 
   const handleTakeTestClick = () => {
-    if (!isLLMActive) {
-      setShowLlmAlert(true);
-      return;
-    }
     onTakeTest();
   };
 
@@ -90,13 +86,13 @@ export function HomeView({
       {/* Primary Action Cards Grid */}
       <div className="primary-actions-grid">
         {/* OPTION 1: TAKE A TEST */}
-        <div className={`action-card take-test-card ${!isLLMActive ? 'needs-connection' : ''}`} onClick={handleTakeTestClick}>
+        <div className="action-card take-test-card" onClick={handleTakeTestClick}>
           <div className="card-top-row">
             <div className="action-icon-wrapper navy">
               <span className="emoji-icon">✍️</span>
             </div>
-            <span className={`card-tag ${isLLMActive ? 'highlight' : 'warning-tag'}`}>
-              {isLLMActive ? t.takeTestTag : `⚠️ ${t.llmRequiredNotice}`}
+            <span className="card-tag highlight">
+              {t.takeTestTag}
             </span>
           </div>
 

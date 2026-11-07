@@ -21,6 +21,7 @@ export function ExamView({ question, llmConfig, language, onFinishExam, onOpenLL
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [autoClosedNotice, setAutoClosedNotice] = useState<string | null>(null);
   const [llmError, setLlmError] = useState<string | null>(null);
+  const [savedPendingAttempt, setSavedPendingAttempt] = useState<Attempt | null>(null);
   const [copiedError, setCopiedError] = useState(false);
   const [remainingSecs, setRemainingSecs] = useState(question.timeLimitMinutes * 60);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -58,6 +59,33 @@ export function ExamView({ question, llmConfig, language, onFinishExam, onOpenLL
       setAutoClosedNotice(t.timeUpNotice);
     }
 
+    const pendingAttempt: Attempt = {
+      id: `att-${Date.now()}`,
+      status: 'pending-evaluation',
+      timestamp: new Date().toISOString(),
+      taskType: question.taskType,
+      questionId: question.id,
+      questionTitle: question.title,
+      questionPrompt: question.prompt,
+      userResponse: response,
+      wordCount,
+      timeSpentSeconds: timeSpent,
+      nclcScore: 0,
+      nclcLevelDescription: 'Evaluation Pending',
+      evaluationSummary: 'Saved locally in queue. Waiting for connection to evaluate.',
+      correctedResponse: '',
+      mistakes: [],
+    };
+
+    // If offline (for cloud providers like Gemini), immediately save to queue!
+    const isOffline = !navigator.onLine && llmConfig.provider === 'gemini';
+    if (isOffline) {
+      pendingAttempt.evaluationError = 'Offline: Saved locally to queue';
+      onFinishExam(pendingAttempt);
+      setIsSubmitting(false);
+      return;
+    }
+
     try {
       const evaluatedAttempt = await evaluateEssayWithLLM(
         llmConfig,
@@ -69,6 +97,9 @@ export function ExamView({ question, llmConfig, language, onFinishExam, onOpenLL
       onFinishExam(evaluatedAttempt);
     } catch (err: any) {
       console.error('Error evaluating exam:', err);
+      pendingAttempt.status = 'evaluation-failed';
+      pendingAttempt.evaluationError = err?.message || 'Failed to communicate with LLM provider';
+      setSavedPendingAttempt(pendingAttempt);
       setLlmError(err?.message || 'Failed to communicate with LLM provider. Please check your LLM configuration and network connection.');
     } finally {
       setIsSubmitting(false);
@@ -146,9 +177,20 @@ export function ExamView({ question, llmConfig, language, onFinishExam, onOpenLL
             </div>
             <div className="error-description">{llmError}</div>
             <div className="error-actions-group">
+              {savedPendingAttempt && (
+                <button
+                  type="button"
+                  className="mac-button primary small"
+                  onClick={() => onFinishExam(savedPendingAttempt)}
+                >
+                  <IconCheckCircle size={14} />
+                  <span>{t.saveToQueue}</span>
+                </button>
+              )}
+
               <button
                 type="button"
-                className="mac-button primary small"
+                className="mac-button secondary small"
                 onClick={() => handleComplete('manual')}
                 disabled={isSubmitting}
               >

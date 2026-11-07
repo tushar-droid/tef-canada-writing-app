@@ -11,7 +11,8 @@ import {
   IconFileText, 
   IconChevronRight, 
   IconAlertTriangle,
-  IconTrash
+  IconTrash,
+  IconRotateCcw
 } from './Icons';
 
 interface HistoryViewProps {
@@ -22,6 +23,7 @@ interface HistoryViewProps {
   onDeleteAttempt: (attemptId: string) => void;
   onClearAllAttempts: () => void;
   onBackToHome: () => void;
+  onEvaluateAttempt?: (attemptId: string) => void;
 }
 
 export function HistoryView({
@@ -32,13 +34,22 @@ export function HistoryView({
   onDeleteAttempt,
   onClearAllAttempts,
   onBackToHome,
+  onEvaluateAttempt,
 }: HistoryViewProps) {
   const t = TRANSLATIONS[language];
-  const [filter, setFilter] = useState<'all' | TaskType>('all');
+  const [filter, setFilter] = useState<'all' | TaskType | 'pending'>('all');
   
   // Custom Modal States for 100% reliable deletion (no broken window.confirm)
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [showClearAllModal, setShowClearAllModal] = useState(false);
+
+  const pendingAttemptsCount = useMemo(() => {
+    return attempts.filter((a) => a.status === 'pending-evaluation' || a.status === 'evaluation-failed').length;
+  }, [attempts]);
+
+  const evaluatedAttempts = useMemo(() => {
+    return attempts.filter((a) => a.status !== 'pending-evaluation' && a.status !== 'evaluation-failed' && (a.nclcScore || 0) > 0);
+  }, [attempts]);
 
   const frequencyMap = useMemo(() => computeCategoryFrequencyMap(attempts), [attempts]);
 
@@ -46,14 +57,17 @@ export function HistoryView({
 
   const filteredAttempts = useMemo(() => {
     if (filter === 'all') return attempts;
+    if (filter === 'pending') {
+      return attempts.filter((a) => a.status === 'pending-evaluation' || a.status === 'evaluation-failed');
+    }
     return attempts.filter((a) => a.taskType === filter);
   }, [attempts, filter]);
 
   const avgNclc = useMemo(() => {
-    if (attempts.length === 0) return 0;
-    const sum = attempts.reduce((acc, a) => acc + (a.nclcScore || 0), 0);
-    return (sum / attempts.length).toFixed(1);
-  }, [attempts]);
+    if (evaluatedAttempts.length === 0) return '--';
+    const sum = evaluatedAttempts.reduce((acc, a) => acc + (a.nclcScore || 0), 0);
+    return (sum / evaluatedAttempts.length).toFixed(1);
+  }, [evaluatedAttempts]);
 
   const triggerDeleteItem = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
@@ -175,6 +189,15 @@ export function HistoryView({
           >
             {t.filterTask2} ({attempts.filter((a) => a.taskType === 'task2').length})
           </button>
+          {pendingAttemptsCount > 0 && (
+            <button
+              type="button"
+              className={`seg-btn pending-seg ${filter === 'pending' ? 'active' : ''}`}
+              onClick={() => setFilter('pending')}
+            >
+              ⏳ {t.filterToBeReviewed} ({pendingAttemptsCount})
+            </button>
+          )}
         </div>
 
         <div className="frequency-legend">
@@ -211,11 +234,12 @@ export function HistoryView({
               }
             );
 
+            const isPending = attempt.status === 'pending-evaluation' || attempt.status === 'evaluation-failed';
             let highCount = 0;
             let medCount = 0;
             let lowCount = 0;
 
-            attempt.mistakes.forEach((m) => {
+            (attempt.mistakes || []).forEach((m) => {
               const freq = getMistakeFrequency(m.category, frequencyMap);
               if (freq === 'high') highCount++;
               else if (freq === 'medium') medCount++;
@@ -225,7 +249,7 @@ export function HistoryView({
             return (
               <div
                 key={attempt.id}
-                className="attempt-row-card"
+                className={`attempt-row-card ${isPending ? 'pending-card' : ''}`}
                 onClick={() => onSelectAttempt(attempt.id)}
               >
                 <div className="attempt-main-info">
@@ -233,6 +257,11 @@ export function HistoryView({
                     <span className={`task-tag ${attempt.taskType}`}>
                       {attempt.taskType === 'task1' ? 'Task 1 • 25 min' : 'Task 2 • 35 min'}
                     </span>
+                    {isPending && (
+                      <span className="task-tag pending-amber">
+                        ⏳ {t.toBeReviewed}
+                      </span>
+                    )}
                     <span className="attempt-date">{formattedDate}</span>
                   </div>
 
@@ -250,20 +279,43 @@ export function HistoryView({
                       <IconClock size={13} /> {Math.round(attempt.timeSpentSeconds / 60)} min
                     </span>
 
-                    <div className="mistakes-count-pills">
-                      {highCount > 0 && <span className="mini-tag red">{highCount} high</span>}
-                      {medCount > 0 && <span className="mini-tag yellow">{medCount} moderate</span>}
-                      {lowCount > 0 && <span className="mini-tag green">{lowCount} rare</span>}
-                    </div>
+                    {!isPending && (
+                      <div className="mistakes-count-pills">
+                        {highCount > 0 && <span className="mini-tag red">{highCount} high</span>}
+                        {medCount > 0 && <span className="mini-tag yellow">{medCount} moderate</span>}
+                        {lowCount > 0 && <span className="mini-tag green">{lowCount} rare</span>}
+                      </div>
+                    )}
                   </div>
                 </div>
 
                 {/* Score & Reliable Delete Action */}
                 <div className="attempt-score-area">
-                  <div className={`nclc-pill nclc-${attempt.nclcScore >= 8 ? 'high' : attempt.nclcScore >= 7 ? 'target' : 'low'}`}>
-                    <IconAward size={16} />
-                    <span className="nclc-score-num">NCLC {attempt.nclcScore}</span>
-                  </div>
+                  {isPending ? (
+                    <div className="pending-action-col">
+                      <div className="nclc-pill nclc-pending">
+                        <span>⏳ {t.pendingEvaluation}</span>
+                      </div>
+                      {onEvaluateAttempt && (
+                        <button
+                          type="button"
+                          className="mac-button primary small inline-eval-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onEvaluateAttempt(attempt.id);
+                          }}
+                        >
+                          <IconRotateCcw size={13} />
+                          <span>{t.evaluateNow}</span>
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className={`nclc-pill nclc-${(attempt.nclcScore || 0) >= 8 ? 'high' : (attempt.nclcScore || 0) >= 7 ? 'target' : 'low'}`}>
+                      <IconAward size={16} />
+                      <span className="nclc-score-num">NCLC {attempt.nclcScore}</span>
+                    </div>
+                  )}
 
                   <div className="attempt-card-actions">
                     <span className="view-details-btn">

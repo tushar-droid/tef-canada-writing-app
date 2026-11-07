@@ -55,8 +55,14 @@ export function loadAttempts(): Attempt[] {
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed)) {
-      // Purge any legacy demo/mock attempts
-      const realAttempts = parsed.filter((a) => a && a.id && !a.id.startsWith('att-00'));
+      // Purge any legacy demo/mock attempts and normalize status
+      const realAttempts = parsed
+        .filter((a) => a && a.id && !a.id.startsWith('att-00'))
+        .map((a) => ({
+          ...a,
+          status: a.status || 'evaluated',
+          mistakes: a.mistakes || [],
+        }));
       if (realAttempts.length !== parsed.length) {
         saveAttempts(realAttempts);
       }
@@ -80,6 +86,13 @@ export function saveAttempts(attempts: Attempt[]): void {
 export function addAttempt(attempt: Attempt): Attempt[] {
   const existing = loadAttempts();
   const updated = [attempt, ...existing];
+  saveAttempts(updated);
+  return updated;
+}
+
+export function updateAttempt(updatedAttempt: Attempt): Attempt[] {
+  const existing = loadAttempts();
+  const updated = existing.map((a) => (a.id === updatedAttempt.id ? updatedAttempt : a));
   saveAttempts(updated);
   return updated;
 }
@@ -187,6 +200,7 @@ export function computeCategoryFrequencyMap(
   const bestDisplay = displayMap || new Map<string, string>();
 
   for (const att of (attempts || [])) {
+    if (att.status === 'pending-evaluation' || att.status === 'evaluation-failed') continue;
     for (const m of (att.mistakes || [])) {
       if (!m || !m.category) continue;
       const raw = m.category.trim();
@@ -228,6 +242,7 @@ export function getTopRecurringError(attempts: Attempt[]): TopRecurringErrorInfo
   const normCounts = new Map<string, number>();
 
   for (const att of (attempts || [])) {
+    if (att.status === 'pending-evaluation' || att.status === 'evaluation-failed') continue;
     for (const m of (att.mistakes || [])) {
       if (!m || !m.category) continue;
       const raw = m.category.trim();

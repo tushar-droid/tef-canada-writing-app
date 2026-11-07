@@ -144,9 +144,11 @@ export function AttemptDetailView({
   };
 
   const handleCopyModel = () => {
-    navigator.clipboard.writeText(attempt.correctedResponse);
-    setCopiedModel(true);
-    setTimeout(() => setCopiedModel(false), 2000);
+    if (attempt.correctedResponse) {
+      navigator.clipboard.writeText(attempt.correctedResponse);
+      setCopiedModel(true);
+      setTimeout(() => setCopiedModel(false), 2000);
+    }
   };
 
   const handlePracticeTopic = () => {
@@ -189,12 +191,14 @@ export function AttemptDetailView({
     }
   };
 
+  const isPending = attempt.status === 'pending-evaluation' || attempt.status === 'evaluation-failed';
+
   // Sub-scores or default estimates
   const subScores = attempt.subScores || {
-    coherence: attempt.nclcScore,
-    vocabulary: attempt.nclcScore,
+    coherence: attempt.nclcScore || 7,
+    vocabulary: attempt.nclcScore || 7,
     taskCompletion: attempt.wordCount >= 200 ? 9 : 7,
-    grammar: Math.max(4, attempt.nclcScore - 2),
+    grammar: Math.max(4, (attempt.nclcScore || 7) - 2),
   };
 
   return (
@@ -256,15 +260,28 @@ export function AttemptDetailView({
         {/* KPI 1: EXAM EVALUATION */}
         <div className="kpi-card">
           <div className="kpi-card-header">
-            <span className="kpi-label">EXAM EVALUATION</span>
-            <span className="kpi-badge teal">NCLC {attempt.nclcScore}</span>
+            <span className="kpi-label">{language === 'fr' ? 'ÉVALUATION' : 'EXAM EVALUATION'}</span>
+            <span className={`kpi-badge ${isPending ? 'amber' : 'teal'}`}>
+              {isPending ? (language === 'fr' ? 'En attente' : 'Pending') : `NCLC ${attempt.nclcScore}`}
+            </span>
           </div>
           <div className="kpi-metric">
-            NCLC {attempt.nclcScore}.0 <span className="metric-level">({attempt.nclcLevelDescription.split('-')[1]?.trim() || 'B2+'})</span>
+            {isPending ? 'NCLC --' : `NCLC ${attempt.nclcScore}.0`}{' '}
+            {!isPending && attempt.nclcLevelDescription && (
+              <span className="metric-level">
+                ({attempt.nclcLevelDescription.split('-')[1]?.trim() || 'B2+'})
+              </span>
+            )}
           </div>
           <div className="kpi-sub green-text">
-            <IconCheckCircle size={13} />
-            <span>Express Entry Benchmark Met (Target: NCLC 7+)</span>
+            {isPending ? (
+              <span className="muted-text">⏳ {language === 'fr' ? 'Copie en attente d’évaluation' : 'Queued for AI evaluation'}</span>
+            ) : (
+              <>
+                <IconCheckCircle size={13} />
+                <span>Express Entry Benchmark Met (Target: NCLC 7+)</span>
+              </>
+            )}
           </div>
         </div>
 
@@ -333,6 +350,46 @@ export function AttemptDetailView({
           </div>
         </div>
       </section>
+
+      {/* PENDING / OFFLINE EVALUATION BANNER */}
+      {isPending && (
+        <section className="pending-hero-banner">
+          <div className="pending-banner-left">
+            <span className="pending-badge-icon">⏳</span>
+            <div>
+              <h3>{language === 'fr' ? 'Épreuve en attente d’évaluation' : 'Exam Submission Queued (Pending Evaluation)'}</h3>
+              <p>
+                {attempt.evaluationError
+                  ? `${language === 'fr' ? 'Diagnostic :' : 'Diagnostic:'} ${attempt.evaluationError}`
+                  : (language === 'fr'
+                      ? 'Votre copie est enregistrée localement en sécurité. Cliquez sur le bouton pour déclencher l’évaluation dès que votre connexion est active.'
+                      : 'Your essay is safely saved locally. Click the button below to run AI evaluation once your connection is active.')}
+              </p>
+            </div>
+          </div>
+          <div className="pending-banner-actions">
+            {onReevaluate && (
+              <button
+                type="button"
+                className="mac-button primary"
+                onClick={handleReevaluate}
+                disabled={isReevaluating}
+              >
+                <IconRotateCcw size={15} />
+                <span>{isReevaluating ? (language === 'fr' ? 'Évaluation en cours...' : 'Evaluating...') : (language === 'fr' ? 'Évaluer maintenant avec l’IA' : 'Evaluate with LLM Now')}</span>
+              </button>
+            )}
+            <button
+              type="button"
+              className="mac-button secondary"
+              onClick={onOpenLLMSettings}
+            >
+              <IconSettings size={14} />
+              <span>{language === 'fr' ? 'Paramètres LLM' : 'Configure LLM'}</span>
+            </button>
+          </div>
+        </section>
+      )}
 
       {/* 3. TASK QUESTION BANNER */}
       <section className="task-banner-box">
@@ -450,7 +507,7 @@ export function AttemptDetailView({
                 </div>
 
                 <div className="model-full-below-body">
-                  {attempt.correctedResponse.split('\n\n').map((para, idx) => (
+                  {(attempt.correctedResponse || (isPending ? (language === 'fr' ? '(Le corrigé NCLC 10 sera généré dès l’évaluation par l’IA)' : '(NCLC 10 model answer will be generated upon AI evaluation)') : '')).split('\n\n').map((para, idx) => (
                     <p key={idx}>{para}</p>
                   ))}
                 </div>
@@ -465,8 +522,33 @@ export function AttemptDetailView({
 
             {/* RIGHT PANEL: TEF SUB-SCORES & TARGET REMEDIATION */}
             <div className="diagnostics-panel-column">
-              {/* TEF Sub-scores Analysis */}
-              <div className="subscores-card">
+              {isPending ? (
+                <div className="subscores-card pending-side-card">
+                  <div className="panel-card-header no-border">
+                    <h3>⏳ {language === 'fr' ? 'Diagnostic en attente' : 'Diagnostics In Queue'}</h3>
+                  </div>
+                  <p className="pending-column-text">
+                    {language === 'fr'
+                      ? 'Cette copie a été enregistrée hors ligne ou mise en attente. Dès que l’évaluation par l’IA sera effectuée, la grille détaillée NCLC et vos fiches de remédiation grammaticale apparaîtront ici.'
+                      : 'This essay was recorded offline or queued for review. Once AI evaluation is completed, the full NCLC breakdown and your grammar resolution notes will appear here.'}
+                  </p>
+                  {onReevaluate && (
+                    <button
+                      type="button"
+                      className="mac-button primary full-width"
+                      onClick={handleReevaluate}
+                      disabled={isReevaluating}
+                      style={{ marginTop: '16px' }}
+                    >
+                      <IconRotateCcw size={15} />
+                      <span>{isReevaluating ? (language === 'fr' ? 'Évaluation en cours...' : 'Evaluating...') : (language === 'fr' ? 'Évaluer maintenant avec l’IA' : 'Evaluate with LLM Now')}</span>
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <>
+                  {/* TEF Sub-scores Analysis */}
+                  <div className="subscores-card">
                 <div className="panel-card-header no-border">
                   <h3>TEF Sub-Scores Analysis</h3>
                   <span className="grid-version-tag">Grid NCLC 2026</span>
@@ -575,8 +657,10 @@ export function AttemptDetailView({
                   })}
                 </div>
               </div>
-            </div>
-          </div>
+            </>
+          )}
+        </div>
+      </div>
         )}
 
         {/* VIEW MODE 2: GRAMMAR DIAGNOSTICS ONLY */}
@@ -638,7 +722,7 @@ export function AttemptDetailView({
               </button>
             </div>
             <div className="model-text-sheet">
-              {attempt.correctedResponse.split('\n\n').map((para, idx) => (
+              {(attempt.correctedResponse || (isPending ? '(Model answer will be generated upon AI evaluation)' : '')).split('\n\n').map((para, idx) => (
                 <p key={idx}>{para}</p>
               ))}
             </div>

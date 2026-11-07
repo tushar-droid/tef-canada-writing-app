@@ -257,7 +257,7 @@ export async function testLLMConnection(config: LLMConfig): Promise<{ success: b
 }
 
 export function isLLMConfigured(config: LLMConfig): boolean {
-  if (!config || !config.isEnabled) return false;
+  if (!config) return false;
   if (config.provider === 'gemini') {
     return !!(config.apiKey && config.apiKey.trim().length > 0);
   }
@@ -398,6 +398,7 @@ Evaluate according to NCLC benchmarks. Remember: explanations and advice must be
 
   return {
     id: `att-${Date.now()}`,
+    status: 'evaluated',
     timestamp: new Date().toISOString(),
     taskType: question.taskType,
     questionId: question.id,

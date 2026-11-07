@@ -1,9 +1,6 @@
-import { useState } from 'react';
 import { TaskType, Question, Attempt, LLMConfig } from '../types';
 import { OFFICIAL_QUESTIONS } from '../data/officialQuestions';
 import { AppLanguage, TRANSLATIONS } from '../i18n/translations';
-import { isLLMConfigured } from '../utils/llmService';
-import { ConfirmModal } from './ConfirmModal';
 import { IconArrowLeft, IconClock, IconFileText, IconPlay, IconCheckCircle } from './Icons';
 
 interface TaskSelectViewProps {
@@ -15,9 +12,8 @@ interface TaskSelectViewProps {
   onBack: () => void;
 }
 
-export function TaskSelectView({ language, attempts, llmConfig, onStartExam, onOpenLLMSettings, onBack }: TaskSelectViewProps) {
+export function TaskSelectView({ language, attempts, llmConfig: _llmConfig, onStartExam, onOpenLLMSettings: _onOpenLLMSettings, onBack }: TaskSelectViewProps) {
   const t = TRANSLATIONS[language];
-  const [showLlmModal, setShowLlmModal] = useState(false);
 
   const allTask1 = OFFICIAL_QUESTIONS.filter((q) => q.taskType === 'task1');
   const allTask2 = OFFICIAL_QUESTIONS.filter((q) => q.taskType === 'task2');
@@ -33,11 +29,6 @@ export function TaskSelectView({ language, attempts, llmConfig, onStartExam, onO
   const remainingTask2 = allTask2.filter((q) => !completedTask2Ids.has(q.id));
 
   const handleSelectTask = (taskType: TaskType) => {
-    if (!isLLMConfigured(llmConfig)) {
-      setShowLlmModal(true);
-      return;
-    }
-
     const pool = taskType === 'task1' ? allTask1 : allTask2;
     const remaining = taskType === 'task1' ? remainingTask1 : remainingTask2;
 
@@ -140,21 +131,6 @@ export function TaskSelectView({ language, attempts, llmConfig, onStartExam, onO
           </button>
         </div>
       </div>
-
-      {/* LLM Connection Required Modal */}
-      <ConfirmModal
-        isOpen={showLlmModal}
-        title={t.llmRequiredNotice}
-        message={t.llmRequiredError}
-        confirmLabel={t.llmConfigureBtn}
-        cancelLabel={t.cancel}
-        isDanger={true}
-        onConfirm={() => {
-          setShowLlmModal(false);
-          onOpenLLMSettings();
-        }}
-        onCancel={() => setShowLlmModal(false)}
-      />
     </div>
   );
 }
