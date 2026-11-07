@@ -1,0 +1,32 @@
+use serde::Serialize;
+
+#[derive(Serialize)]
+pub struct SystemDetails {
+    os: &'static str,
+    arch: &'static str,
+    family: &'static str,
+}
+
+// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
+#[tauri::command]
+fn greet(name: &str) -> String {
+    format!("Hello, {}! You've been greeted from Rust on macOS!", name)
+}
+
+#[tauri::command]
+fn get_system_info() -> SystemDetails {
+    SystemDetails {
+        os: std::env::consts::OS,
+        arch: std::env::consts::ARCH,
+        family: std::env::consts::FAMILY,
+    }
+}
+
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+    tauri::Builder::default()
+        .plugin(tauri_plugin_opener::init())
+        .invoke_handler(tauri::generate_handler![greet, get_system_info])
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
+}
