@@ -2,7 +2,7 @@ import { useState, useMemo, useRef } from 'react';
 import { Attempt, Question } from '../types';
 import { AppLanguage, TRANSLATIONS } from '../i18n/translations';
 import { computeCategoryFrequencyMap, getMistakeFrequency } from '../utils/storage';
-import { DUMMY_QUESTIONS } from '../data/dummyQuestions';
+import { OFFICIAL_QUESTIONS } from '../data/officialQuestions';
 import { ConfirmModal } from './ConfirmModal';
 import { LanguageSwitch } from './LanguageSwitch';
 import { AnnotatedEssay } from './AnnotatedEssay';
@@ -123,7 +123,7 @@ export function AttemptDetailView({
   };
 
   const handlePracticeTopic = () => {
-    const foundQuestion = DUMMY_QUESTIONS.find((q) => q.id === attempt.questionId) || {
+    const foundQuestion = OFFICIAL_QUESTIONS.find((q) => q.id === attempt.questionId) || {
       id: attempt.questionId,
       taskType: attempt.taskType,
       title: attempt.questionTitle,

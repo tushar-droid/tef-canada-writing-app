@@ -92,6 +92,7 @@ export default function App() {
       {screen.type === 'select-task' && (
         <TaskSelectView
           language={language}
+          attempts={attempts}
           onStartExam={handleStartExam}
           onBack={() => setScreen({ type: 'home' })}
         />

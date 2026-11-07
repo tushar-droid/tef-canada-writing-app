@@ -642,6 +642,27 @@ body {
   flex: 1;
 }
 
+.task-progress-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--border-subtle);
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.task-progress-indicator .text-teal {
+  color: #10b981;
+}
+
+.task-progress-indicator .text-muted {
+  color: var(--text-muted);
+}
+
 .task-meta-list {
   display: flex;
   flex-direction: column;
