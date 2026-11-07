@@ -3,7 +3,7 @@ import { Question, Attempt, LLMConfig } from '../types';
 import { AppLanguage, TRANSLATIONS } from '../i18n/translations';
 import { Timer } from './Timer';
 import { AccentBar } from './AccentBar';
-import { IconAlertTriangle, IconFileText, IconCheckCircle, IconArrowLeft } from './Icons';
+import { IconAlertTriangle, IconFileText, IconCheckCircle, IconArrowLeft, IconRotateCcw, IconSettings } from './Icons';
 import { evaluateEssayWithLLM } from '../utils/llmService';
 
 interface ExamViewProps {
@@ -11,14 +11,17 @@ interface ExamViewProps {
   llmConfig: LLMConfig;
   language: AppLanguage;
   onFinishExam: (attempt: Attempt) => void;
+  onOpenLLMSettings?: () => void;
   onCancel: () => void;
 }
 
-export function ExamView({ question, llmConfig, language, onFinishExam, onCancel }: ExamViewProps) {
+export function ExamView({ question, llmConfig, language, onFinishExam, onOpenLLMSettings, onCancel }: ExamViewProps) {
   const t = TRANSLATIONS[language];
   const [response, setResponse] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [autoClosedNotice, setAutoClosedNotice] = useState<string | null>(null);
+  const [llmError, setLlmError] = useState<string | null>(null);
+  const [copiedError, setCopiedError] = useState(false);
   const [remainingSecs, setRemainingSecs] = useState(question.timeLimitMinutes * 60);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -49,6 +52,7 @@ export function ExamView({ question, llmConfig, language, onFinishExam, onCancel
   const handleComplete = async (reason: 'manual' | 'timeout') => {
     if (isSubmitting) return;
     setIsSubmitting(true);
+    setLlmError(null);
 
     if (reason === 'timeout') {
       setAutoClosedNotice(t.timeUpNotice);
@@ -63,8 +67,9 @@ export function ExamView({ question, llmConfig, language, onFinishExam, onCancel
         wordCount
       );
       onFinishExam(evaluatedAttempt);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error evaluating exam:', err);
+      setLlmError(err?.message || 'Failed to communicate with LLM provider. Please check your LLM configuration and network connection.');
     } finally {
       setIsSubmitting(false);
     }
@@ -128,6 +133,53 @@ export function ExamView({ question, llmConfig, language, onFinishExam, onCancel
         <div className="timeout-alert-banner">
           <IconAlertTriangle size={18} />
           <span>{autoClosedNotice}</span>
+        </div>
+      )}
+
+      {/* LLM Evaluation Failure Banner */}
+      {llmError && (
+        <div className="exam-llm-error-banner">
+          <div className="error-banner-content">
+            <div className="error-header-line">
+              <IconAlertTriangle size={18} className="error-banner-icon" />
+              <strong>{language === 'fr' ? "Échec de l'évaluation par l'IA" : "LLM Evaluation Failed"}</strong>
+            </div>
+            <div className="error-description">{llmError}</div>
+            <div className="error-actions-group">
+              <button
+                type="button"
+                className="mac-button primary small"
+                onClick={() => handleComplete('manual')}
+                disabled={isSubmitting}
+              >
+                <IconRotateCcw size={14} />
+                <span>{language === 'fr' ? 'Réessayer l’évaluation' : 'Retry Evaluation'}</span>
+              </button>
+
+              {onOpenLLMSettings && (
+                <button
+                  type="button"
+                  className="mac-button secondary small"
+                  onClick={onOpenLLMSettings}
+                >
+                  <IconSettings size={14} />
+                  <span>{language === 'fr' ? 'Paramètres LLM' : 'Configure LLM'}</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                className="mac-button ghost small"
+                onClick={() => {
+                  navigator.clipboard.writeText(llmError);
+                  setCopiedError(true);
+                  setTimeout(() => setCopiedError(false), 2000);
+                }}
+              >
+                <span>{copiedError ? (language === 'fr' ? 'Copié !' : 'Copied!') : (language === 'fr' ? 'Copier l’erreur' : 'Copy Error')}</span>
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

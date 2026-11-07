@@ -1,5 +1,4 @@
 import { Attempt, MistakeFrequency, LLMConfig } from '../types';
-import { DUMMY_ATTEMPTS } from '../data/dummyAttempts';
 import { AppLanguage } from '../i18n/translations';
 
 const ATTEMPTS_STORAGE_KEY = 'tef_writing_attempts_v2';
@@ -53,18 +52,20 @@ export const DEFAULT_LLM_CONFIG: LLMConfig = {
 export function loadAttempts(): Attempt[] {
   try {
     const raw = localStorage.getItem(ATTEMPTS_STORAGE_KEY);
-    if (!raw) {
-      saveAttempts(DUMMY_ATTEMPTS);
-      return DUMMY_ATTEMPTS;
-    }
+    if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed)) {
-      return parsed;
+      // Purge any legacy demo/mock attempts
+      const realAttempts = parsed.filter((a) => a && a.id && !a.id.startsWith('att-00'));
+      if (realAttempts.length !== parsed.length) {
+        saveAttempts(realAttempts);
+      }
+      return realAttempts;
     }
-    return DUMMY_ATTEMPTS;
+    return [];
   } catch (e) {
     console.error('Failed to load attempts from localStorage:', e);
-    return DUMMY_ATTEMPTS;
+    return [];
   }
 }
 
@@ -93,11 +94,6 @@ export function deleteAttempt(attemptId: string): Attempt[] {
 export function clearAllAttempts(): Attempt[] {
   saveAttempts([]);
   return [];
-}
-
-export function resetToDummyAttempts(): Attempt[] {
-  saveAttempts(DUMMY_ATTEMPTS);
-  return DUMMY_ATTEMPTS;
 }
 
 export function loadLanguage(): AppLanguage {

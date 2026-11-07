@@ -36,6 +36,9 @@ export const TRANSLATIONS = {
     llmBannerDescInactive: 'Connect Google Gemini or a local model (Ollama) to grade your French essays with official NCLC standards.',
     configureLLM: 'Configure LLM',
     manageLLM: 'LLM Settings',
+    llmRequiredNotice: 'LLM Connection Required',
+    llmRequiredError: 'You cannot take a test without an active LLM connection. Please configure your Google Gemini API key or Local Model in settings before taking an exam.',
+    llmConfigureBtn: 'Configure LLM Now',
 
     footerAttempts: 'Completed tests',
     footerAvgNclc: 'Average NCLC Score',
@@ -179,6 +182,9 @@ export const TRANSLATIONS = {
     llmBannerDescInactive: 'Connectez Google Gemini ou un modèle local (Ollama) pour évaluer vos rédactions selon les critères NCLC.',
     configureLLM: 'Configurer l\'IA',
     manageLLM: 'Paramètres LLM',
+    llmRequiredNotice: 'Connexion IA requise',
+    llmRequiredError: 'Vous ne pouvez pas passer de test sans connexion active à un modèle IA. Veuillez configurer votre clé API Google Gemini ou un modèle local dans les paramètres.',
+    llmConfigureBtn: 'Configurer l\'IA maintenant',
 
     footerAttempts: 'Épreuves réalisées',
     footerAvgNclc: 'Score NCLC Moyen',

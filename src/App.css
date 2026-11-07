@@ -456,6 +456,20 @@ body {
   color: var(--accent-navy);
 }
 
+.card-tag.warning-tag {
+  background: var(--freq-yellow-bg);
+  color: #b45309;
+  border: 1px solid var(--freq-yellow-border);
+}
+
+.action-card.take-test-card.needs-connection {
+  border-color: var(--freq-yellow-border);
+}
+
+.action-card.take-test-card.needs-connection:hover {
+  border-color: #f59e0b;
+}
+
 .card-tag.count {
   background: var(--bg-card-subtle);
   color: var(--text-muted);
@@ -785,6 +799,54 @@ body {
   gap: 10px;
   font-weight: 600;
   font-size: 0.88rem;
+}
+
+.exam-llm-error-banner {
+  background: var(--freq-red-bg);
+  border-bottom: 2px solid var(--freq-red-border);
+  padding: 14px 24px;
+}
+
+.error-banner-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 1000px;
+}
+
+.error-header-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--freq-red);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.error-banner-icon {
+  color: var(--freq-red);
+  flex-shrink: 0;
+}
+
+.error-description {
+  font-size: 0.85rem;
+  color: var(--text-main);
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid var(--freq-red-border);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-family: var(--font-mono, monospace);
+  word-break: break-word;
+  max-height: 120px;
+  overflow-y: auto;
+  line-height: 1.4;
+}
+
+.error-actions-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
 }
 
 .exam-body.strict-mode {

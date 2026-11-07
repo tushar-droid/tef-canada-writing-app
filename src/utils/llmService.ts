@@ -256,8 +256,20 @@ export async function testLLMConnection(config: LLMConfig): Promise<{ success: b
   }
 }
 
+export function isLLMConfigured(config: LLMConfig): boolean {
+  if (!config || !config.isEnabled) return false;
+  if (config.provider === 'gemini') {
+    return !!(config.apiKey && config.apiKey.trim().length > 0);
+  }
+  if (config.provider === 'custom') {
+    return !!(config.baseUrl && config.baseUrl.trim().length > 0);
+  }
+  return false;
+}
+
 /**
- * Evaluates essay with automatic fallback model failover on high demand
+ * Evaluates essay with real LLM invocation only (no simulated fallbacks)
+ * and automatic fallback model failover on high demand
  */
 export async function evaluateEssayWithLLM(
   config: LLMConfig,
@@ -266,6 +278,16 @@ export async function evaluateEssayWithLLM(
   timeSpentSeconds: number,
   wordCount: number
 ): Promise<Attempt> {
+  if (!isLLMConfigured(config)) {
+    throw new Error(
+      'No active LLM connection configured. Please configure your Google Gemini API key or Local Model in settings before submitting.'
+    );
+  }
+
+  const primaryModel = config.modelName || (config.provider === 'gemini' ? 'gemini-3-flash-preview' : 'mistral');
+  let usedModel = primaryModel;
+  let usedFallback = false;
+
   const userPrompt = `
 OFFICIAL TEF CANADA WRITING EXAM EVALUATION
 TASK: ${question.taskType === 'task1' ? 'Section A — Fait Divers (min 80 words)' : 'Section B — Opinion Letter (min 200 words)'}
@@ -281,137 +303,98 @@ STATISTICS:
 - Word count: ${wordCount} words
 - Time taken: ${Math.round(timeSpentSeconds / 60)} minutes
 
-Evaluate according to NCLC benchmarks. Remember: explanations and advice must be in ENGLISH, while the corrected text is in authentic high-level FRENCH. Output strictly valid JSON.
+Evaluate according to NCLC benchmarks. Remember: explanations and advice must be in ENGLISH, while the corrected text is in authentic high-level FRENCH. Output strictly valid JSON matching this schema:
+{
+  "nclcScore": 8,
+  "nclcLevelDescription": "NCLC 8.0 (Niveau B2+)",
+  "evaluationSummary": "English summary...",
+  "correctedResponse": "Complete French model rewrite in full...",
+  "subScores": {
+    "coherence": 8,
+    "vocabulary": 8,
+    "taskCompletion": 9,
+    "grammar": 7
+  },
+  "mistakes": [
+    {
+      "id": "m-1",
+      "category": "Error rule category in English",
+      "original": "exact French phrase containing mistake",
+      "correction": "corrected French phrase",
+      "explanation": "Why this is an error in English",
+      "howToAvoid": "English actionable tip"
+    }
+  ]
+}
 `;
 
-  if (config.isEnabled && config.apiKey) {
-    try {
-      const primaryModel = config.modelName || (config.provider === 'gemini' ? 'gemini-3-flash-preview' : 'mistral');
-      let usedModel = primaryModel;
-      let usedFallback = false;
+  // 1. Try Primary Model
+  let callResult = await callProviderAPI(
+    config,
+    primaryModel,
+    config.systemPrompt || '',
+    userPrompt
+  );
 
-      // 1. Try Primary Model
-      let callResult = await callProviderAPI(
-        config,
-        primaryModel,
-        config.systemPrompt || '',
-        userPrompt
+  // 2. If primary failed and fallback is configured, try Fallback Model
+  if (!callResult.success && config.fallbackModelName && config.fallbackModelName.trim()) {
+    const fallbackModel = config.fallbackModelName.trim();
+    console.warn(`Primary model (${primaryModel}) failed: ${callResult.error}. Attempting fallback model: ${fallbackModel}`);
+
+    const fallbackResult = await callProviderAPI(
+      config,
+      fallbackModel,
+      config.systemPrompt || '',
+      userPrompt
+    );
+
+    if (fallbackResult.success) {
+      callResult = fallbackResult;
+      usedModel = fallbackModel;
+      usedFallback = true;
+    } else {
+      console.error(`Fallback model (${fallbackModel}) also failed: ${fallbackResult.error}`);
+      throw new Error(
+        `Both primary and fallback LLM models failed:\n• Primary (${primaryModel}): ${callResult.error}\n• Fallback (${fallbackModel}): ${fallbackResult.error}`
       );
-
-      // 2. If high demand / error, try Fallback Model
-      if (!callResult.success && config.fallbackModelName && config.fallbackModelName.trim()) {
-        const fallbackModel = config.fallbackModelName.trim();
-        console.warn(`Primary model (${primaryModel}) failed with error: ${callResult.error}. Attempting fallback model: ${fallbackModel}`);
-
-        const fallbackResult = await callProviderAPI(
-          config,
-          fallbackModel,
-          config.systemPrompt || '',
-          userPrompt
-        );
-
-        if (fallbackResult.success) {
-          callResult = fallbackResult;
-          usedModel = fallbackModel;
-          usedFallback = true;
-        } else {
-          console.error(`Fallback model (${fallbackModel}) also failed: ${fallbackResult.error}`);
-        }
-      }
-
-      if (callResult.success && callResult.data) {
-        const parsed: LLMResponsePayload = extractJsonFromLLMOutput(callResult.data);
-
-        const mistakes: Mistake[] = (parsed.mistakes || []).map((m, idx) => ({
-          id: m.id || `m-llm-${idx + 1}`,
-          category: m.category || 'General Grammar',
-          original: m.original || '',
-          correction: m.correction || '',
-          explanation: m.explanation || 'Grammar error in French structure.',
-          howToAvoid: m.howToAvoid || 'Review this rule carefully before next attempt.',
-        }));
-
-        let summary = parsed.evaluationSummary || 'Essay evaluated under official NCLC criteria.';
-        if (usedFallback) {
-          summary = `[High demand on primary model (${primaryModel}) — successfully evaluated using fallback model (${usedModel})]\n\n${summary}`;
-        }
-
-        const subScores = parsed.subScores || {
-          coherence: parsed.nclcScore || 7,
-          vocabulary: parsed.nclcScore || 7,
-          taskCompletion: wordCount >= question.minWords ? 9 : 7,
-          grammar: Math.max(4, (parsed.nclcScore || 7) - (mistakes.length > 3 ? 2 : 1)),
-        };
-
-        return {
-          id: `att-${Date.now()}`,
-          timestamp: new Date().toISOString(),
-          taskType: question.taskType,
-          questionId: question.id,
-          questionTitle: question.title,
-          questionPrompt: question.prompt,
-          userResponse: userText || '(No text submitted)',
-          wordCount,
-          timeSpentSeconds,
-          nclcScore: parsed.nclcScore || 7,
-          nclcLevelDescription: parsed.nclcLevelDescription || 'NCLC 7 - Level B2',
-          evaluationSummary: summary,
-          correctedResponse: parsed.correctedResponse || userText,
-          mistakes,
-          subScores,
-        };
-      }
-    } catch (e) {
-      console.error('LLM invocation failed, using local simulated evaluator:', e);
     }
   }
 
-  return generateSimulatedEvaluation(question, userText, timeSpentSeconds, wordCount);
-}
-
-function generateSimulatedEvaluation(
-  question: Question,
-  userText: string,
-  timeSpentSeconds: number,
-  wordCount: number
-): Attempt {
-  let score = 7;
-  let level = 'NCLC 7 - Level B2 (Upper Intermediate)';
-  
-  if (wordCount < question.minWords * 0.75) {
-    score = 5;
-    level = 'NCLC 5 - Level B1 (Initial Intermediate)';
-  } else if (wordCount >= question.minWords) {
-    score = 8;
-    level = 'NCLC 8 - Level B2 High / Transition C1';
+  // 3. If still not successful, throw the actual error from the LLM
+  if (!callResult.success || !callResult.data) {
+    throw new Error(callResult.error || `Failed to receive evaluation from ${config.provider.toUpperCase()} (${usedModel}).`);
   }
 
-  const sampleMistakes: Mistake[] = [
-    {
-      id: `m-sim-1`,
-      category: 'Past Participle with Être',
-      original: 'sont arrivé rapidement',
-      correction: 'sont arrivés rapidement',
-      explanation: 'When conjugated with the auxiliary verb "être", the past participle must agree in gender and number with the subject (masculine plural here).',
-      howToAvoid: 'Form a habit: whenever you use "être" (est, sont, était) in past tenses, immediately add "-s" for plural or "-es" for feminine plural.'
-    },
-    {
-      id: `m-sim-2`,
-      category: 'Plural Agreement (Nouns & Adjectives)',
-      original: 'plusieurs raison importante',
-      correction: 'plusieurs raisons importantes',
-      explanation: 'The determiner "plusieurs" always requires the entire noun phrase (noun + adjectives) to be in plural form.',
-      howToAvoid: 'During proofreading, highlight quantifiers ("plusieurs", "quelques") and confirm that both the noun and attached adjectives carry an "-s".'
-    },
-    {
-      id: `m-sim-3`,
-      category: 'Subjunctive Mood',
-      original: 'bien que cela est vrai',
-      correction: 'bien que cela soit vrai',
-      explanation: 'The subordinate conjunction "bien que" (although) strictly triggers the subjunctive mood in French ("soit", not "est").',
-      howToAvoid: 'Memorize the top 5 subjunctive triggers for the TEF exam: "bien que", "pour que", "il faut que", "avant que", "à moins que".'
-    }
-  ];
+  // 4. Parse the real LLM JSON response
+  let parsed: LLMResponsePayload;
+  try {
+    parsed = extractJsonFromLLMOutput(callResult.data);
+  } catch (parseErr: any) {
+    throw new Error(
+      `The LLM (${usedModel}) responded, but the output could not be parsed as valid evaluation JSON: ${parseErr.message}\n\nRaw output received:\n${callResult.data.slice(0, 300)}`
+    );
+  }
+
+  const mistakes: Mistake[] = (parsed.mistakes || []).map((m, idx) => ({
+    id: m.id || `m-llm-${idx + 1}`,
+    category: m.category || 'General Grammar',
+    original: m.original || '',
+    correction: m.correction || '',
+    explanation: m.explanation || 'Grammar error in French structure.',
+    howToAvoid: m.howToAvoid || 'Review this rule carefully before next attempt.',
+  }));
+
+  let summary = parsed.evaluationSummary || 'Essay evaluated under official NCLC criteria.';
+  if (usedFallback) {
+    summary = `[High demand on primary model (${primaryModel}) — successfully evaluated using fallback model (${usedModel})]\n\n${summary}`;
+  }
+
+  const subScores = parsed.subScores || {
+    coherence: parsed.nclcScore || 7,
+    vocabulary: parsed.nclcScore || 7,
+    taskCompletion: wordCount >= question.minWords ? 9 : 7,
+    grammar: Math.max(4, (parsed.nclcScore || 7) - (mistakes.length > 3 ? 2 : 1)),
+  };
 
   return {
     id: `att-${Date.now()}`,
@@ -423,18 +406,11 @@ function generateSimulatedEvaluation(
     userResponse: userText || '(No text submitted)',
     wordCount,
     timeSpentSeconds,
-    nclcScore: score,
-    nclcLevelDescription: level,
-    evaluationSummary: `Test completed in ${Math.round(timeSpentSeconds / 60)} minutes with a word count of ${wordCount} words. The response demonstrates good narrative coherence and task completion. Review the grammar notes below to avoid agreement errors and reinforce your B2/C1 qualification.`,
-    correctedResponse: userText 
-      ? `Modèle de réponse optimisé pour le niveau NCLC 9/10 :\n\n${userText}\n\n[Version enrichie par des connecteurs logiques formels et des structures complexes].`
-      : 'Modèle de réponse rédigé par l\'IA.',
-    mistakes: sampleMistakes,
-    subScores: {
-      coherence: score,
-      vocabulary: score,
-      taskCompletion: wordCount >= question.minWords ? 9 : 7,
-      grammar: Math.max(4, score - 2),
-    },
+    nclcScore: parsed.nclcScore || 7,
+    nclcLevelDescription: parsed.nclcLevelDescription || `NCLC ${parsed.nclcScore || 7}`,
+    evaluationSummary: summary,
+    correctedResponse: parsed.correctedResponse || userText,
+    mistakes,
+    subScores,
   };
 }

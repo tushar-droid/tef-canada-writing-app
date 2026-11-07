@@ -10,7 +10,6 @@ import {
   IconClock, 
   IconFileText, 
   IconChevronRight, 
-  IconRotateCcw, 
   IconAlertTriangle,
   IconTrash
 } from './Icons';
@@ -23,7 +22,6 @@ interface HistoryViewProps {
   onDeleteAttempt: (attemptId: string) => void;
   onClearAllAttempts: () => void;
   onBackToHome: () => void;
-  onResetDummyData: () => void;
 }
 
 export function HistoryView({
@@ -34,7 +32,6 @@ export function HistoryView({
   onDeleteAttempt,
   onClearAllAttempts,
   onBackToHome,
-  onResetDummyData,
 }: HistoryViewProps) {
   const t = TRANSLATIONS[language];
   const [filter, setFilter] = useState<'all' | TaskType>('all');
@@ -111,16 +108,6 @@ export function HistoryView({
               <span>{t.clearAll}</span>
             </button>
           )}
-
-          <button 
-            type="button" 
-            className="mac-button secondary small"
-            onClick={onResetDummyData}
-            title={t.reloadDemo}
-          >
-            <IconRotateCcw size={14} />
-            <span>{t.reloadDemo}</span>
-          </button>
         </div>
       </div>
 
@@ -188,7 +175,13 @@ export function HistoryView({
         {filteredAttempts.length === 0 ? (
           <div className="empty-state">
             <IconAlertTriangle size={36} />
-            <p>{t.emptyHistory}</p>
+            <p>
+              {attempts.length === 0
+                ? (language === 'fr'
+                    ? 'Aucune tentative enregistrée. Configurez votre LLM et lancez votre premier examen !'
+                    : 'No test attempts recorded yet. Configure your LLM and take your first test!')
+                : t.emptyHistory}
+            </p>
           </div>
         ) : (
           filteredAttempts.map((attempt) => {

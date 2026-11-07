@@ -1,6 +1,9 @@
+import { useState } from 'react';
 import { Attempt, LLMConfig } from '../types';
 import { AppLanguage, TRANSLATIONS } from '../i18n/translations';
 import { LanguageSwitch } from './LanguageSwitch';
+import { ConfirmModal } from './ConfirmModal';
+import { isLLMConfigured } from '../utils/llmService';
 import { 
   IconAward, 
   IconFileText, 
@@ -31,12 +34,22 @@ export function HomeView({
   onOpenLLMSettings,
 }: HomeViewProps) {
   const t = TRANSLATIONS[language];
+  const [showLlmAlert, setShowLlmAlert] = useState(false);
+
   const totalAttempts = attempts.length;
   const avgNclc = totalAttempts > 0 
     ? (attempts.reduce((sum, a) => sum + (a.nclcScore || 0), 0) / totalAttempts).toFixed(1)
-    : '7.0';
+    : '--';
 
-  const isLLMActive = llmConfig.isEnabled && (llmConfig.apiKey || llmConfig.provider === 'custom');
+  const isLLMActive = isLLMConfigured(llmConfig);
+
+  const handleTakeTestClick = () => {
+    if (!isLLMActive) {
+      setShowLlmAlert(true);
+      return;
+    }
+    onTakeTest();
+  };
 
   return (
     <div className="home-dashboard">
@@ -77,12 +90,14 @@ export function HomeView({
       {/* Primary Action Cards Grid */}
       <div className="primary-actions-grid">
         {/* OPTION 1: TAKE A TEST */}
-        <div className="action-card take-test-card" onClick={onTakeTest}>
+        <div className={`action-card take-test-card ${!isLLMActive ? 'needs-connection' : ''}`} onClick={handleTakeTestClick}>
           <div className="card-top-row">
             <div className="action-icon-wrapper navy">
               <span className="emoji-icon">✍️</span>
             </div>
-            <span className="card-tag highlight">{t.takeTestTag}</span>
+            <span className={`card-tag ${isLLMActive ? 'highlight' : 'warning-tag'}`}>
+              {isLLMActive ? t.takeTestTag : `⚠️ ${t.llmRequiredNotice}`}
+            </span>
           </div>
 
           <h2 className="action-title">{t.takeTest}</h2>
@@ -177,6 +192,21 @@ export function HomeView({
           <span className="quick-value green">{t.footerTargetVal}</span>
         </div>
       </div>
+
+      {/* LLM Connection Required Modal */}
+      <ConfirmModal
+        isOpen={showLlmAlert}
+        title={t.llmRequiredNotice}
+        message={t.llmRequiredError}
+        confirmLabel={t.llmConfigureBtn}
+        cancelLabel={t.cancel}
+        isDanger={true}
+        onConfirm={() => {
+          setShowLlmAlert(false);
+          onOpenLLMSettings();
+        }}
+        onCancel={() => setShowLlmAlert(false)}
+      />
     </div>
   );
 }

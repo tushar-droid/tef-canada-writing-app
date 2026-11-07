@@ -6,7 +6,6 @@ import {
   addAttempt, 
   deleteAttempt, 
   clearAllAttempts, 
-  resetToDummyAttempts,
   loadLLMConfig,
   saveLLMConfig,
   loadLanguage,
@@ -61,11 +60,6 @@ export default function App() {
     setAttempts(updated);
   };
 
-  const handleResetDummyData = () => {
-    const reset = resetToDummyAttempts();
-    setAttempts(reset);
-  };
-
   const handleSaveLLMConfig = (updated: LLMConfig) => {
     setLLMConfig(updated);
     saveLLMConfig(updated);
@@ -93,7 +87,9 @@ export default function App() {
         <TaskSelectView
           language={language}
           attempts={attempts}
+          llmConfig={llmConfig}
           onStartExam={handleStartExam}
+          onOpenLLMSettings={() => setScreen({ type: 'llm-settings' })}
           onBack={() => setScreen({ type: 'home' })}
         />
       )}
@@ -104,6 +100,7 @@ export default function App() {
           llmConfig={llmConfig}
           language={language}
           onFinishExam={handleFinishExam}
+          onOpenLLMSettings={() => setScreen({ type: 'llm-settings' })}
           onCancel={() => setScreen({ type: 'home' })}
         />
       )}
@@ -117,7 +114,6 @@ export default function App() {
           onDeleteAttempt={handleDeleteAttempt}
           onClearAllAttempts={handleClearAllAttempts}
           onBackToHome={() => setScreen({ type: 'home' })}
-          onResetDummyData={handleResetDummyData}
         />
       )}
 
