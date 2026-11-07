@@ -12,6 +12,15 @@ dist
 dist-ssr
 *.local
 
+# Tauri & Rust build artifacts
+target/
+src-tauri/target/
+*.dmg
+*.app
+*.pkg
+*.tar.gz
+*.zip
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
