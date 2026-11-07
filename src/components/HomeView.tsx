@@ -64,6 +64,9 @@ export function HomeView({
 
       {/* Header Banner */}
       <header className="home-header">
+        <div className="home-logo-wrapper">
+          <img src="/app-logo.jpg" alt="TEF Canada App Logo" className="home-app-logo" />
+        </div>
         <div className="home-badge">
           <span className="dot pulse" /> {t.officialPrep}
         </div>
