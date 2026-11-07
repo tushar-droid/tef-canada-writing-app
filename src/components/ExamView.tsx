@@ -65,6 +65,8 @@ export function ExamView({ question, llmConfig, language, onFinishExam, onCancel
       onFinishExam(evaluatedAttempt);
     } catch (err) {
       console.error('Error evaluating exam:', err);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 

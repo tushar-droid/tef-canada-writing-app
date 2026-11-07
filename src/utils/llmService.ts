@@ -26,6 +26,12 @@ export interface LLMResponsePayload {
   nclcLevelDescription: string;
   evaluationSummary: string;
   correctedResponse: string;
+  subScores?: {
+    coherence: number;
+    vocabulary: number;
+    taskCompletion: number;
+    grammar: number;
+  };
   mistakes: Array<{
     id?: string;
     category: string;
@@ -34,6 +40,20 @@ export interface LLMResponsePayload {
     explanation: string;
     howToAvoid: string;
   }>;
+}
+
+function extractJsonFromLLMOutput(raw: string): any {
+  const cleaned = raw.replace(/```json/gi, '').replace(/```/g, '').trim();
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    const firstBrace = cleaned.indexOf('{');
+    const lastBrace = cleaned.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace > firstBrace) {
+      return JSON.parse(cleaned.slice(firstBrace, lastBrace + 1));
+    }
+    throw new Error('No valid JSON block detected in model output');
+  }
 }
 
 /**
@@ -300,8 +320,7 @@ Evaluate according to NCLC benchmarks. Remember: explanations and advice must be
       }
 
       if (callResult.success && callResult.data) {
-        const cleaned = callResult.data.replace(/```json/gi, '').replace(/```/g, '').trim();
-        const parsed: LLMResponsePayload = JSON.parse(cleaned);
+        const parsed: LLMResponsePayload = extractJsonFromLLMOutput(callResult.data);
 
         const mistakes: Mistake[] = (parsed.mistakes || []).map((m, idx) => ({
           id: m.id || `m-llm-${idx + 1}`,
@@ -316,6 +335,13 @@ Evaluate according to NCLC benchmarks. Remember: explanations and advice must be
         if (usedFallback) {
           summary = `[High demand on primary model (${primaryModel}) — successfully evaluated using fallback model (${usedModel})]\n\n${summary}`;
         }
+
+        const subScores = parsed.subScores || {
+          coherence: parsed.nclcScore || 7,
+          vocabulary: parsed.nclcScore || 7,
+          taskCompletion: wordCount >= question.minWords ? 9 : 7,
+          grammar: Math.max(4, (parsed.nclcScore || 7) - (mistakes.length > 3 ? 2 : 1)),
+        };
 
         return {
           id: `att-${Date.now()}`,
@@ -332,6 +358,7 @@ Evaluate according to NCLC benchmarks. Remember: explanations and advice must be
           evaluationSummary: summary,
           correctedResponse: parsed.correctedResponse || userText,
           mistakes,
+          subScores,
         };
       }
     } catch (e) {
@@ -403,5 +430,11 @@ function generateSimulatedEvaluation(
       ? `Modèle de réponse optimisé pour le niveau NCLC 9/10 :\n\n${userText}\n\n[Version enrichie par des connecteurs logiques formels et des structures complexes].`
       : 'Modèle de réponse rédigé par l\'IA.',
     mistakes: sampleMistakes,
+    subScores: {
+      coherence: score,
+      vocabulary: score,
+      taskCompletion: wordCount >= question.minWords ? 9 : 7,
+      grammar: Math.max(4, score - 2),
+    },
   };
 }

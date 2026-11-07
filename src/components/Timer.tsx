@@ -10,6 +10,16 @@ interface TimerProps {
 export function Timer({ totalSeconds, onTimeUp, onTick }: TimerProps) {
   const [timeLeft, setTimeLeft] = useState(totalSeconds);
   const timeUpCalledRef = useRef(false);
+  const onTimeUpRef = useRef(onTimeUp);
+  const onTickRef = useRef(onTick);
+
+  useEffect(() => {
+    onTimeUpRef.current = onTimeUp;
+  }, [onTimeUp]);
+
+  useEffect(() => {
+    onTickRef.current = onTick;
+  }, [onTick]);
 
   useEffect(() => {
     setTimeLeft(totalSeconds);
@@ -17,23 +27,15 @@ export function Timer({ totalSeconds, onTimeUp, onTick }: TimerProps) {
   }, [totalSeconds]);
 
   useEffect(() => {
-    if (timeLeft <= 0) {
-      if (!timeUpCalledRef.current) {
-        timeUpCalledRef.current = true;
-        onTimeUp();
-      }
-      return;
-    }
-
     const interval = setInterval(() => {
       setTimeLeft((prev) => {
         const next = prev - 1;
-        if (onTick) onTick(next);
+        if (onTickRef.current) onTickRef.current(next);
         if (next <= 0) {
           clearInterval(interval);
           if (!timeUpCalledRef.current) {
             timeUpCalledRef.current = true;
-            onTimeUp();
+            onTimeUpRef.current();
           }
           return 0;
         }
@@ -42,7 +44,7 @@ export function Timer({ totalSeconds, onTimeUp, onTick }: TimerProps) {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [timeLeft, onTimeUp, onTick]);
+  }, [totalSeconds]);
 
   const minutes = Math.floor(timeLeft / 60);
   const seconds = timeLeft % 60;

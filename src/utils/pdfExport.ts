@@ -8,6 +8,20 @@ export interface PDFExportResult {
   error?: string;
 }
 
+function cleanPdfText(str: string): string {
+  if (!str) return '';
+  return str
+    .replace(/[’‘`]/g, "'")
+    .replace(/[“”]/g, '"')
+    .replace(/«/g, '"')
+    .replace(/»/g, '"')
+    .replace(/œ/g, 'oe')
+    .replace(/Œ/g, 'Oe')
+    .replace(/æ/g, 'ae')
+    .replace(/Æ/g, 'Ae')
+    .replace(/\u00a0/g, ' ');
+}
+
 export async function exportAttemptToPDF(attempt: Attempt): Promise<PDFExportResult> {
   try {
     const doc = new jsPDF({
@@ -90,13 +104,13 @@ export async function exportAttemptToPDF(attempt: Attempt): Promise<PDFExportRes
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(11);
     doc.setTextColor(15, 23, 42);
-    doc.text(`Topic: ${attempt.questionTitle}`, margin, y);
+    doc.text(`Topic: ${cleanPdfText(attempt.questionTitle)}`, margin, y);
     y += 5;
 
     doc.setFont('helvetica', 'italic');
     doc.setFontSize(8.5);
     doc.setTextColor(100, 116, 139);
-    const promptLines = doc.splitTextToSize(attempt.questionPrompt, contentWidth);
+    const promptLines = doc.splitTextToSize(cleanPdfText(attempt.questionPrompt), contentWidth);
     doc.text(promptLines, margin, y);
     y += promptLines.length * 4 + 6;
 
@@ -137,7 +151,7 @@ export async function exportAttemptToPDF(attempt: Attempt): Promise<PDFExportRes
     const essayParas = attempt.userResponse.split('\n\n');
     for (const para of essayParas) {
       if (!para.trim()) continue;
-      const lines = doc.splitTextToSize(para.trim(), contentWidth - 8);
+      const lines = doc.splitTextToSize(cleanPdfText(para.trim()), contentWidth - 8);
       checkPageBreak(lines.length * 4.5 + 4);
 
       // Draw subtle background quote box
@@ -167,7 +181,7 @@ export async function exportAttemptToPDF(attempt: Attempt): Promise<PDFExportRes
     const modelParas = attempt.correctedResponse.split('\n\n');
     for (const para of modelParas) {
       if (!para.trim()) continue;
-      const lines = doc.splitTextToSize(para.trim(), contentWidth - 8);
+      const lines = doc.splitTextToSize(cleanPdfText(para.trim()), contentWidth - 8);
       checkPageBreak(lines.length * 4.5 + 4);
 
       // Draw subtle green/cyan tinted quote box
@@ -197,23 +211,23 @@ export async function exportAttemptToPDF(attempt: Attempt): Promise<PDFExportRes
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(9);
         doc.setTextColor(220, 38, 38);
-        doc.text(`${idx + 1}. ${m.category}`, margin, y);
+        doc.text(`${idx + 1}. ${cleanPdfText(m.category)}`, margin, y);
         y += 4.5;
 
         // Diff lines
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(8.5);
         doc.setTextColor(185, 28, 28);
-        doc.text(`   Erreur : « ${m.original} »`, margin, y);
+        doc.text(`   Erreur : "${cleanPdfText(m.original)}"`, margin, y);
         y += 4;
 
         doc.setTextColor(21, 128, 61);
-        doc.text(`   Correction : « ${m.correction} »`, margin, y);
+        doc.text(`   Correction : "${cleanPdfText(m.correction)}"`, margin, y);
         y += 4.5;
 
         // English advice
         doc.setTextColor(51, 65, 85);
-        const adviceText = `   Rule & How to avoid: ${m.explanation} ${m.howToAvoid}`;
+        const adviceText = `   Rule & How to avoid: ${cleanPdfText(m.explanation)} ${cleanPdfText(m.howToAvoid)}`;
         const adviceLines = doc.splitTextToSize(adviceText, contentWidth - 6);
         checkPageBreak(adviceLines.length * 4);
         doc.text(adviceLines, margin, y);

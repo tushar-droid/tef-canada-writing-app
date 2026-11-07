@@ -35,9 +35,12 @@ export function AnnotatedEssay({
     const matches: MatchPos[] = [];
 
     for (const m of mistakes) {
-      if (!m.original || m.original.trim().length === 0) continue;
+      if (!m.original) continue;
+      // Strip any accidental quotation marks or guillemets that LLMs might include
+      const cleanOriginal = m.original.replace(/^[«"'\s]+|[»"'\s]+$/g, '').trim();
+      if (cleanOriginal.length === 0) continue;
       
-      const searchTarget = m.original.trim();
+      const searchTarget = cleanOriginal;
       let pos = 0;
       
       while (pos < text.length) {

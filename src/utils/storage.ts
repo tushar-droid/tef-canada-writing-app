@@ -169,8 +169,9 @@ export function saveLLMConfig(config: LLMConfig): void {
 
 export function computeCategoryFrequencyMap(attempts: Attempt[]): Map<string, number> {
   const counts = new Map<string, number>();
-  for (const att of attempts) {
-    for (const m of att.mistakes) {
+  for (const att of (attempts || [])) {
+    for (const m of (att.mistakes || [])) {
+      if (!m || !m.category) continue;
       const cat = m.category.trim();
       counts.set(cat, (counts.get(cat) || 0) + 1);
     }
