@@ -6,6 +6,7 @@ import { DUMMY_QUESTIONS } from '../data/dummyQuestions';
 import { ConfirmModal } from './ConfirmModal';
 import { LanguageSwitch } from './LanguageSwitch';
 import { AnnotatedEssay } from './AnnotatedEssay';
+import { exportAttemptToPDF } from '../utils/pdfExport';
 import { 
   IconArrowLeft, 
   IconClock, 
@@ -51,6 +52,8 @@ export function AttemptDetailView({
   const [viewMode, setViewMode] = useState<ViewMode>('side-by-side');
   const [copiedModel, setCopiedModel] = useState(false);
   const [isReevaluating, setIsReevaluating] = useState(false);
+  const [isExportingPDF, setIsExportingPDF] = useState(false);
+  const [exportNotice, setExportNotice] = useState<string | null>(null);
 
   const mistakeCardRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
@@ -129,6 +132,24 @@ export function AttemptDetailView({
       minWords: attempt.taskType === 'task1' ? 80 : 200,
     };
     onPracticeAgain(foundQuestion);
+  };
+
+  const handleExportPDF = async () => {
+    setIsExportingPDF(true);
+    setExportNotice(null);
+    try {
+      const res = await exportAttemptToPDF(attempt);
+      if (res.success) {
+        setExportNotice('✅ PDF Report exported to Downloads and opened in Preview!');
+        setTimeout(() => setExportNotice(null), 5000);
+      } else {
+        alert(`Export failed: ${res.error || 'Unknown error'}`);
+      }
+    } catch (err: any) {
+      alert(`Export error: ${err?.message || err}`);
+    } finally {
+      setIsExportingPDF(false);
+    }
   };
 
   const handleReevaluate = async () => {
@@ -312,37 +333,73 @@ export function AttemptDetailView({
         {/* VIEW MODE 1: SIDE BY SIDE (Matches Screenshot) */}
         {viewMode === 'side-by-side' && (
           <div className="side-by-side-grid">
-            {/* LEFT PANEL: YOUR ESSAY SUBMISSION WITH IN-TEXT UNDERLINES */}
-            <div className="essay-panel-card">
-              <div className="panel-card-header">
-                <div className="panel-title-group">
-                  <IconFileText size={16} />
-                  <h3>Your Essay Submission</h3>
+            {/* LEFT COLUMN: CANDIDATE ESSAY + FULL MODEL BAND 9 BELOW IT */}
+            <div className="essay-submission-column">
+              {/* Card 1: Your Essay Submission with In-Text Underlines */}
+              <div className="essay-panel-card">
+                <div className="panel-card-header">
+                  <div className="panel-title-group">
+                    <IconFileText size={16} />
+                    <h3>Your Essay Submission</h3>
+                  </div>
+                  <div className="panel-stats-badges">
+                    <span className="stat-pill">{attempt.wordCount} words</span>
+                    {highCount > 0 && <span className="stat-pill red">{highCount} High</span>}
+                    {lowCount > 0 && <span className="stat-pill green">{lowCount} Rare</span>}
+                  </div>
                 </div>
-                <div className="panel-stats-badges">
-                  <span className="stat-pill">{attempt.wordCount} words</span>
-                  {highCount > 0 && <span className="stat-pill red">{highCount} High</span>}
-                  {lowCount > 0 && <span className="stat-pill green">{lowCount} Rare</span>}
+
+                {/* The annotated essay with interactive colored underlines */}
+                <div className="annotated-text-container">
+                  <AnnotatedEssay
+                    text={attempt.userResponse}
+                    mistakes={enrichedMistakes}
+                    activeMistakeId={activeMistakeId}
+                    onSelectMistake={handleSelectMistakeFromText}
+                  />
+                </div>
+
+                <div className="essay-panel-footer">
+                  <span className="inspect-hint">
+                    Click any colored tag to jump to detailed grammar resolution
+                  </span>
+                  <span className="inspect-status">
+                    🛡 Inspect mode active
+                  </span>
                 </div>
               </div>
 
-              {/* The annotated essay with interactive colored underlines */}
-              <div className="annotated-text-container">
-                <AnnotatedEssay
-                  text={attempt.userResponse}
-                  mistakes={enrichedMistakes}
-                  activeMistakeId={activeMistakeId}
-                  onSelectMistake={handleSelectMistakeFromText}
-                />
-              </div>
+              {/* Card 2: Full Corrected Model Band 9 Answer Listed in its Entirety Below User's Response */}
+              <div className="model-full-below-card">
+                <div className="panel-card-header">
+                  <div className="panel-title-group">
+                    <IconSparkles size={16} />
+                    <h3>Model Band 9 Reference Answer (Corrected in Full)</h3>
+                  </div>
+                  <div className="panel-stats-badges">
+                    <span className="stat-pill teal">NCLC 10 / C1 Master</span>
+                    <button
+                      type="button"
+                      className="copy-extract-btn"
+                      onClick={handleCopyModel}
+                      title="Copy full reference model"
+                    >
+                      {copiedModel ? 'Copied!' : 'Copy Model'}
+                    </button>
+                  </div>
+                </div>
 
-              <div className="essay-panel-footer">
-                <span className="inspect-hint">
-                  Click any colored tag to jump to detailed grammar resolution
-                </span>
-                <span className="inspect-status">
-                  🛡 Inspect mode active
-                </span>
+                <div className="model-full-below-body">
+                  {attempt.correctedResponse.split('\n\n').map((para, idx) => (
+                    <p key={idx}>{para}</p>
+                  ))}
+                </div>
+
+                <div className="model-card-footer">
+                  <span className="model-badge-note">
+                    ✨ High-register Canadian French structure & discourse markers
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -458,26 +515,6 @@ export function AttemptDetailView({
                   })}
                 </div>
               </div>
-
-              {/* Model Band 9 Extract Card */}
-              <div className="model-band-extract-card">
-                <div className="extract-header">
-                  <div className="extract-title">
-                    <IconSparkles size={16} />
-                    <h4>Model Band 9 Extract</h4>
-                  </div>
-                  <button
-                    type="button"
-                    className="copy-extract-btn"
-                    onClick={handleCopyModel}
-                  >
-                    {copiedModel ? 'Copied!' : 'Copy All'}
-                  </button>
-                </div>
-                <div className="extract-body-text">
-                  <p>« {attempt.correctedResponse.slice(0, 260)}... »</p>
-                </div>
-              </div>
             </div>
           </div>
         )}
@@ -555,14 +592,21 @@ export function AttemptDetailView({
           <button
             type="button"
             className="footer-action-btn"
-            onClick={() => {
-              window.print();
-            }}
+            onClick={handleExportPDF}
+            disabled={isExportingPDF}
+            title="Generate and export full diagnostic report as PDF"
           >
             <IconDownload size={15} />
-            <span>Export PDF Report</span>
+            <span>{isExportingPDF ? 'Generating PDF...' : 'Export PDF Report'}</span>
           </button>
         </div>
+
+        {exportNotice && (
+          <div className="pdf-toast-banner">
+            <IconCheckCircle size={15} />
+            <span>{exportNotice}</span>
+          </div>
+        )}
 
         <div className="footer-right">
           {prevAttempt && (

@@ -2971,3 +2971,100 @@ input:checked + .slider:before {
 .model-text-sheet p:last-child {
   margin-bottom: 0;
 }
+
+
+/* ==========================================================================
+   MODEL ANSWER BELOW ESSAY & PDF EXPORT NOTIFICATIONS
+   ========================================================================== */
+
+.essay-submission-column {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.model-full-below-card {
+  background: #0b1120;
+  border: 1px solid #19263e;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.25);
+}
+
+.model-full-below-card .panel-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 20px;
+  border-bottom: 1px solid #172236;
+  background: #0d1424;
+}
+
+.model-full-below-card .panel-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #38bdf8;
+}
+
+.model-full-below-card .panel-title-group h3 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #f8fafc;
+  margin: 0;
+}
+
+.model-full-below-card .stat-pill.teal {
+  background: rgba(20, 184, 166, 0.14);
+  border: 1px solid rgba(20, 184, 166, 0.35);
+  color: #2dd4bf;
+}
+
+.model-full-below-body {
+  padding: 24px 26px;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", serif;
+  font-size: 0.98rem;
+  line-height: 1.85;
+  color: #e2e8f0;
+  background: #080d19;
+  border-left: 3px solid #14b8a6;
+}
+
+.model-full-below-body p {
+  margin-bottom: 14px;
+}
+
+.model-full-below-body p:last-child {
+  margin-bottom: 0;
+}
+
+.model-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 20px;
+  border-top: 1px solid #172236;
+  font-size: 0.76rem;
+  background: #090e1a;
+}
+
+.model-badge-note {
+  color: #2dd4bf;
+  font-weight: 500;
+}
+
+.pdf-toast-banner {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: #34d399;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 8px;
+  animation: modal-fade-in 0.2s ease-out;
+}
