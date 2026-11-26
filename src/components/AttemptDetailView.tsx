@@ -16,7 +16,8 @@ import {
   IconTrash,
   IconSettings,
   IconRotateCcw,
-  IconDownload
+  IconDownload,
+  IconAlertTriangle
 } from './Icons';
 
 interface AttemptDetailViewProps {
@@ -98,26 +99,6 @@ export function AttemptDetailView({
 
   const highCount = enrichedMistakes.filter((m) => m.frequencyTag === 'high').length;
   const lowCount = enrichedMistakes.filter((m) => m.frequencyTag === 'low').length;
-
-  // Find top recurring error among the mistakes in this attempt
-  const topRecurringError = useMemo(() => {
-    if (rankedMistakes.length === 0) {
-      return {
-        category: language === 'fr' ? 'Aucune' : 'None',
-        historyCount: 0,
-        thisCopyCount: 0,
-        tag: 'none' as const,
-      };
-    }
-
-    const top = rankedMistakes[0];
-    return {
-      category: top.category,
-      historyCount: top.occurrenceCount,
-      thisCopyCount: top.thisCopyCount,
-      tag: top.frequencyTag,
-    };
-  }, [rankedMistakes, language]);
 
   // Attempt pagination (Previous / Next)
   const currentIndex = allAttempts.findIndex((a) => a.id === attempt.id);
@@ -223,13 +204,13 @@ export function AttemptDetailView({
           {onReevaluate && (
             <button
               type="button"
-              className="ide-btn secondary"
+              className="mac-button primary small header-reeval-btn"
               onClick={handleReevaluate}
               disabled={isReevaluating}
-              title="Re-run evaluation through LLM"
+              title="Re-run comprehensive linguistic evaluation through LLM"
             >
-              <IconRotateCcw size={14} />
-              <span>{isReevaluating ? 'Re-evaluating...' : 'Re-evaluate with LLM'}</span>
+              <IconRotateCcw size={14} className={isReevaluating ? 'spinning' : ''} />
+              <span>{isReevaluating ? (language === 'fr' ? 'Réévaluation...' : 'Re-evaluating...') : (language === 'fr' ? 'Réévaluer avec l’IA' : 'Re-evaluate with AI')}</span>
             </button>
           )}
 
@@ -302,50 +283,42 @@ export function AttemptDetailView({
           </div>
         </div>
 
-        {/* KPI 3: TOP RECURRING ERROR */}
+        {/* KPI 3: TOTAL ERRORS DETECTED */}
         <div className="kpi-card">
           <div className="kpi-card-header">
             <span className="kpi-label">
-              {language === 'fr' ? 'ERREUR PRINCIPALE' : 'TOP RECURRING ERROR'}
+              {language === 'fr' ? 'TOTAL ERREURS DÉTECTÉES' : 'TOTAL ERRORS DETECTED'}
             </span>
             <span
               className={`kpi-badge ${
-                topRecurringError.tag === 'high'
-                  ? 'red'
-                  : topRecurringError.tag === 'medium'
-                  ? 'amber'
-                  : topRecurringError.historyCount === 0
+                enrichedMistakes.length === 0
                   ? 'green'
-                  : 'grey'
+                  : enrichedMistakes.length <= 3
+                  ? 'amber'
+                  : 'red'
               }`}
             >
-              {topRecurringError.historyCount === 0
-                ? (language === 'fr' ? 'Sans faute' : 'Zero Errors')
-                : topRecurringError.tag === 'high'
-                ? (language === 'fr' ? 'Priorité haute' : 'High Priority')
-                : topRecurringError.tag === 'medium'
-                ? (language === 'fr' ? 'Répétition modérée' : 'Moderate Repeat')
-                : (language === 'fr' ? 'Erreur isolée' : 'Isolated Error')}
+              {enrichedMistakes.length === 0
+                ? (language === 'fr' ? 'Zéro faute' : 'Zero Errors')
+                : enrichedMistakes.length <= 3
+                ? (language === 'fr' ? 'Excellente maîtrise' : 'High Accuracy')
+                : (language === 'fr' ? 'Audit exhaustif' : 'Exhaustive Audit')}
             </span>
           </div>
           <div className="kpi-metric error-metric">
-            <span className={`red-dot dot-${topRecurringError.tag}`}>●</span>{' '}
-            {topRecurringError.category}
+            <span className={`red-dot ${enrichedMistakes.length === 0 ? 'dot-green' : 'dot-high'}`}>●</span>{' '}
+            {enrichedMistakes.length} {language === 'fr' ? 'erreur' + (enrichedMistakes.length > 1 ? 's' : '') : 'error' + (enrichedMistakes.length !== 1 ? 's' : '')}
           </div>
           <div className="kpi-sub muted-text">
-            <IconClock size={13} />
+            <IconAlertTriangle size={13} />
             <span>
-              {topRecurringError.historyCount === 0
+              {enrichedMistakes.length === 0
                 ? (language === 'fr'
                     ? 'Aucune faute détectée dans cette copie'
                     : 'No mistakes detected in this copy')
-                : allAttempts.length <= 1
-                ? (language === 'fr'
-                    ? `${topRecurringError.thisCopyCount} occurrence${topRecurringError.thisCopyCount > 1 ? 's' : ''} dans cette copie`
-                    : `${topRecurringError.thisCopyCount} occurrence${topRecurringError.thisCopyCount > 1 ? 's' : ''} in this essay`)
                 : (language === 'fr'
-                    ? `${topRecurringError.historyCount} au total (${topRecurringError.thisCopyCount} dans cette copie)`
-                    : `${topRecurringError.historyCount} across tests (${topRecurringError.thisCopyCount} in this essay)`)}
+                    ? `${rankedMistakes.length} diagnostics répertoriés sans omission`
+                    : `${rankedMistakes.length} diagnostics reported without omission`)}
             </span>
           </div>
         </div>
@@ -602,9 +575,9 @@ export function AttemptDetailView({
                 <div className="panel-card-header no-border">
                   <div className="panel-title-group">
                     <span className="shield-icon">🎯</span>
-                    <h3>Target Remediation</h3>
+                    <h3>{language === 'fr' ? 'Diagnostics linguistiques' : 'Linguistic Diagnostics'} ({rankedMistakes.length})</h3>
                   </div>
-                  <span className="ranked-tag">Ranked by frequency impact</span>
+                  <span className="ranked-tag">{language === 'fr' ? 'Audit exhaustif' : 'Exhaustive audit'}</span>
                 </div>
 
                 <div className="remediation-cards-list">
@@ -667,8 +640,8 @@ export function AttemptDetailView({
         {viewMode === 'diagnostics' && (
           <div className="diagnostics-only-view">
             <div className="diagnostics-header-block">
-              <h2>All Grammar Resolution & Pedagogical Rules</h2>
-              <p>Review each mistake in depth along with Canadian scoring criteria.</p>
+              <h2>{language === 'fr' ? `Audit linguistique complet (${rankedMistakes.length} erreurs)` : `Complete Linguistic Audit (${rankedMistakes.length} errors)`}</h2>
+              <p>{language === 'fr' ? 'Chaque faute de conjugaison, grammaire, orthographe ou syntaxe expliquée en détail.' : 'Every mistake in conjugation, grammar, spelling, contractions, and syntax explained in detail.'}</p>
             </div>
             <div className="remediation-cards-list full-width">
               {rankedMistakes.map((mistake, index) => (
@@ -733,6 +706,18 @@ export function AttemptDetailView({
       {/* 6. BOTTOM ACTION FOOTER */}
       <footer className="review-action-footer">
         <div className="footer-left">
+          {onReevaluate && (
+            <button
+              type="button"
+              className="footer-action-btn primary-tint"
+              onClick={handleReevaluate}
+              disabled={isReevaluating}
+              title="Re-run comprehensive evaluation through LLM"
+            >
+              <IconRotateCcw size={15} className={isReevaluating ? 'spinning' : ''} />
+              <span>{isReevaluating ? (language === 'fr' ? 'Réévaluation...' : 'Re-evaluating...') : (language === 'fr' ? 'Réévaluer cette copie' : 'Re-evaluate Essay')}</span>
+            </button>
+          )}
           <button type="button" className="footer-action-btn" onClick={handlePracticeTopic}>
             <IconRotateCcw size={15} />
             <span>Practice This Topic Again</span>

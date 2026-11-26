@@ -3419,3 +3419,52 @@ input:checked + .slider:before {
   font-size: 0.82rem;
   font-weight: 600;
 }
+
+/* Re-evaluate Button Styles */
+.header-reeval-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 0.8rem;
+  padding: 6px 14px;
+  background: linear-flex;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.history-reeval-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.76rem;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.history-reeval-btn:hover {
+  background: rgba(27, 50, 82, 0.12);
+  color: var(--accent-navy);
+}
+
+.footer-action-btn.primary-tint {
+  background: rgba(27, 50, 82, 0.08);
+  color: var(--accent-navy);
+  border: 1px solid rgba(27, 50, 82, 0.22);
+  font-weight: 600;
+}
+
+.footer-action-btn.primary-tint:hover {
+  background: rgba(27, 50, 82, 0.16);
+  border-color: var(--accent-navy);
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}

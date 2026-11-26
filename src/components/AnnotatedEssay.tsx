@@ -42,6 +42,7 @@ export function AnnotatedEssay({
       
       const searchTarget = cleanOriginal;
       let pos = 0;
+      let foundAny = false;
       
       while (pos < text.length) {
         const foundIndex = text.indexOf(searchTarget, pos);
@@ -52,8 +53,26 @@ export function AnnotatedEssay({
           end: foundIndex + searchTarget.length,
           mistake: m,
         });
-        
+        foundAny = true;
         pos = foundIndex + searchTarget.length;
+      }
+
+      // Fallback: If exact match failed, try case-insensitive search
+      if (!foundAny) {
+        const lowerText = text.toLowerCase();
+        const lowerTarget = searchTarget.toLowerCase();
+        let lpos = 0;
+        while (lpos < lowerText.length) {
+          const foundIndex = lowerText.indexOf(lowerTarget, lpos);
+          if (foundIndex === -1) break;
+
+          matches.push({
+            start: foundIndex,
+            end: foundIndex + searchTarget.length,
+            mistake: m,
+          });
+          lpos = foundIndex + searchTarget.length;
+        }
       }
     }
 

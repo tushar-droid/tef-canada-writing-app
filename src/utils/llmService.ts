@@ -303,26 +303,42 @@ STATISTICS:
 - Word count: ${wordCount} words
 - Time taken: ${Math.round(timeSpentSeconds / 60)} minutes
 
-Evaluate according to NCLC benchmarks. Remember: explanations and advice must be in ENGLISH, while the corrected text is in authentic high-level FRENCH. Output strictly valid JSON matching this schema:
+MANDATORY EXHAUSTIVE LINGUISTIC AUDIT INSTRUCTIONS:
+1. Conduct an EXHAUSTIVE, line-by-line, word-by-word linguistic audit of the candidate's French writing.
+2. DO NOT MISS ANY ERRORS, no matter how small. Every single error must be documented in "mistakes".
+3. Specifically verify:
+   - Verb Conjugation & Tenses (incorrect endings, passé composé vs imparfait, wrong auxiliaries, subjunctive omissions like "bien que cela est" -> "soit")
+   - Verb Choice & Lexicon (wrong verbs, anglicisms, false friends, incorrect collocations like "faire une décision" -> "prendre", "visiter des gens" -> "rendre visite à")
+   - Spelling & Orthography (phonetic misspellings, missing/extra double consonants, homophone confusion like a/à, ou/où, ces/ses/c'est)
+   - Missing or Misplaced Accents (é, è, ê, à, â, ù, û, ô, î, ï, ç - e.g. "cote" -> "côté", "tres" -> "très", "deja" -> "déjà", "ca" -> "ça")
+   - Contractions & Elisions (l', d', j', qu', s', c', n', contracted articles like "de le" -> "du", "à les" -> "aux", "si il" -> "s'il")
+   - Agreements (noun-adjective gender & number, subject-verb, past participle with être and with avoir preceding direct objects)
+   - Prepositions (incorrect prepositions like "participer dans" -> "participer à", "en" vs "à", "de")
+   - Syntax, Word Order & Pronouns (pronoun placement y/en/COD/COI, negation particles "ne... pas")
+4. Include ALL detected mistakes in the "mistakes" array. DO NOT cap or truncate the list.
+5. All explanations and "howToAvoid" tips must be in clear ENGLISH.
+6. Provide a complete, rewritten model answer in "correctedResponse" in authentic C1 / NCLC 10 Canadian French.
+
+Output strictly valid JSON matching this schema:
 {
-  "nclcScore": 8,
-  "nclcLevelDescription": "NCLC 8.0 (Niveau B2+)",
-  "evaluationSummary": "English summary...",
+  "nclcScore": 7,
+  "nclcLevelDescription": "NCLC 7.0 (Niveau B2)",
+  "evaluationSummary": "Detailed English evaluation mentioning strengths and total errors found...",
   "correctedResponse": "Complete French model rewrite in full...",
   "subScores": {
-    "coherence": 8,
-    "vocabulary": 8,
-    "taskCompletion": 9,
-    "grammar": 7
+    "coherence": 7,
+    "vocabulary": 7,
+    "taskCompletion": 8,
+    "grammar": 6
   },
   "mistakes": [
     {
       "id": "m-1",
-      "category": "Error rule category in English",
-      "original": "exact French phrase containing mistake",
-      "correction": "corrected French phrase",
+      "category": "Specific rule category in English (e.g. Verb Conjugation, Verb Choice, Missing Accent, Contraction & Elision, Gender Agreement, Spelling, Preposition)",
+      "original": "exact French snippet containing mistake",
+      "correction": "corrected French snippet",
       "explanation": "Why this is an error in English",
-      "howToAvoid": "English actionable tip"
+      "howToAvoid": "Actionable English tip to prevent this"
     }
   ]
 }

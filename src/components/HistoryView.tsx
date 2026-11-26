@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Attempt, TaskType } from '../types';
 import { AppLanguage, TRANSLATIONS } from '../i18n/translations';
-import { computeCategoryFrequencyMap, getMistakeFrequency, getTopRecurringError } from '../utils/storage';
+import { computeCategoryFrequencyMap, getMistakeFrequency } from '../utils/storage';
 import { ConfirmModal } from './ConfirmModal';
 import { LanguageSwitch } from './LanguageSwitch';
 import { 
@@ -53,7 +53,9 @@ export function HistoryView({
 
   const frequencyMap = useMemo(() => computeCategoryFrequencyMap(attempts), [attempts]);
 
-  const topError = useMemo(() => getTopRecurringError(attempts), [attempts]);
+  const totalAuditedErrors = useMemo(() => {
+    return attempts.reduce((acc, a) => acc + (a.mistakes?.length || 0), 0);
+  }, [attempts]);
 
   const filteredAttempts = useMemo(() => {
     if (filter === 'all') return attempts;
@@ -130,37 +132,14 @@ export function HistoryView({
         </div>
 
         <div className="stat-card">
-          <div className="stat-label">{t.mostFrequentError}</div>
-          <div
-            className={`stat-value ${
-              topError.level === 'high'
-                ? 'red-text'
-                : topError.level === 'medium'
-                ? 'yellow-text'
-                : topError.level === 'low'
-                ? 'green-text'
-                : 'muted-text'
-            }`}
-            style={{ fontSize: '1rem', marginTop: '6px' }}
-          >
-            {topError.count === 0
-              ? (language === 'fr' ? 'Aucune' : 'None')
-              : topError.category}
+          <div className="stat-label">{t.errorsAudited || (language === 'fr' ? 'Erreurs Auditées' : 'Errors Audited')}</div>
+          <div className="stat-value highlight-navy" style={{ fontSize: '1.4rem' }}>
+            {totalAuditedErrors}
           </div>
           <div className="stat-sub">
-            {topError.count === 0 ? (
-              <span className="freq-pill none">
-                {language === 'fr' ? '● 0 faute enregistrée' : '● 0 errors recorded'}
-              </span>
-            ) : topError.count === 1 ? (
-              <span className="freq-pill green">
-                ● 1 {language === 'fr' ? 'occurrence (isolée)' : 'occurrence (isolated)'}
-              </span>
-            ) : (
-              <span className={`freq-pill ${topError.level === 'high' ? 'red' : 'yellow'}`}>
-                ● {topError.count} {t.occurrences} {topError.level === 'high' ? (language === 'fr' ? '(récurrente)' : '(recurring)') : (language === 'fr' ? '(modérée)' : '(moderate)')}
-              </span>
-            )}
+            {attempts.length === 0
+              ? (language === 'fr' ? 'Aucune copie' : 'No tests yet')
+              : (language === 'fr' ? 'Audit linguistique exhaustif' : 'Exhaustive audit across tests')}
           </div>
         </div>
       </div>
@@ -318,6 +297,20 @@ export function HistoryView({
                   )}
 
                   <div className="attempt-card-actions">
+                    {!isPending && onEvaluateAttempt && (
+                      <button
+                        type="button"
+                        className="mac-button secondary small history-reeval-btn"
+                        title={language === 'fr' ? 'Réévaluer avec l’IA' : 'Re-evaluate with AI'}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onEvaluateAttempt(attempt.id);
+                        }}
+                      >
+                        <IconRotateCcw size={12} />
+                        <span>{language === 'fr' ? 'Réévaluer' : 'Re-evaluate'}</span>
+                      </button>
+                    )}
                     <span className="view-details-btn">
                       {t.viewAttempt} <IconChevronRight size={14} />
                     </span>
